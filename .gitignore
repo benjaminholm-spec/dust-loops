@@ -1,0 +1,5 @@
+/build/
+/build-debug/
+/JUCE/
+.DS_Store
+*.wav
