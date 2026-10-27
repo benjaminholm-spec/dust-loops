@@ -10,7 +10,7 @@ class SegmentDisplay : public juce::Component
 public:
     SegmentDisplay();
 
-    void setProgram (int number, const juce::String& name);
+    void setProgram (const juce::String& code, const juce::String& name); // code: two characters, e.g. "07"
     void advance (float dt); // animate marquee and flicker; call at the editor frame rate
 
     std::function<void()> onClick;

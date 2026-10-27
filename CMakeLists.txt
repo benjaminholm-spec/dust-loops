@@ -11,7 +11,7 @@ set(DL_CODE_FX        Dlx1)          # AU subtype, effect
 set(DL_BUNDLE_ID      uk.co.dustplanetrecords.dustloops)
 # -------------------------------------------------------------------------------------------------
 
-project(DUST_LOOPS VERSION 0.1.0 LANGUAGES C CXX)
+project(DUST_LOOPS VERSION 0.4.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,8 +22,13 @@ add_subdirectory(JUCE)
 
 juce_add_binary_data(DustLoopsAssets SOURCES assets/dpr_logo_horizontal.png)
 
+# Factory presets: every JSON file under presets/ is built into the plugin.
+file(GLOB_RECURSE DL_PRESET_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/presets/*.json")
+juce_add_binary_data(DustLoopsPresets NAMESPACE PresetData HEADER_NAME PresetData.h SOURCES ${DL_PRESET_FILES})
+
 set(DL_SOURCES
     Source/Core/Params.cpp
+    Source/Presets/PresetManager.cpp
     Source/Plugin/PluginProcessor.cpp
     Source/Plugin/PluginEditor.cpp
     Source/Gui/Art.cpp
@@ -32,7 +37,9 @@ set(DL_SOURCES
     Source/Gui/VuMeter.cpp
     Source/Gui/DeckParts.cpp
     Source/Gui/Panels.cpp
-    Source/Gui/PedalBoardView.cpp)
+    Source/Gui/PedalBoardView.cpp
+    Source/Gui/SynthPanels.cpp
+    Source/Gui/PresetBrowser.cpp)
 
 set(DL_COMMON_DEFS
     DUST_PRODUCT_NAME="${DL_PRODUCT_NAME}"
@@ -43,6 +50,7 @@ set(DL_COMMON_DEFS
 
 set(DL_COMMON_LIBS
     DustLoopsAssets
+    DustLoopsPresets
     juce::juce_audio_utils
     juce::juce_dsp)
 
@@ -101,7 +109,8 @@ dust_add_plugin(DustLoopsFX
 
 # ---- Unit tests: the real processor, driven offline ---------------------------------------------
 juce_add_console_app(DustLoopsTests PRODUCT_NAME "DustLoopsTests")
-target_sources(DustLoopsTests PRIVATE ${DL_SOURCES} tests/TestMain.cpp tests/TapeTests.cpp tests/PedalTests.cpp)
+target_sources(DustLoopsTests PRIVATE ${DL_SOURCES} tests/TestMain.cpp tests/TapeTests.cpp tests/PedalTests.cpp
+    tests/SynthTests.cpp tests/PresetTests.cpp)
 target_include_directories(DustLoopsTests PRIVATE Source)
 target_compile_definitions(DustLoopsTests PRIVATE ${DL_COMMON_DEFS}
     JucePlugin_Name="${DL_PRODUCT_NAME}" DUST_LOOPS_FX=0 JUCE_STANDALONE_APPLICATION=1)
@@ -118,3 +127,13 @@ target_compile_definitions(DustSnapshot PRIVATE ${DL_COMMON_DEFS}
     JucePlugin_Name="${DL_PRODUCT_NAME}" DUST_LOOPS_FX=0 JUCE_STANDALONE_APPLICATION=1 JUCE_MODAL_LOOPS_PERMITTED=1)
 target_link_libraries(DustSnapshot PRIVATE ${DL_COMMON_LIBS} juce::juce_recommended_config_flags)
 set_target_properties(DustSnapshot PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
+# ---- Preset render tool: renders every factory preset to WAV and reports levels -------------------
+#   cmake --build build --target DustRender && build/DustRender_artefacts/Release/DustRender [--trims tools/preset_trims.json]
+juce_add_console_app(DustRender PRODUCT_NAME "DustRender")
+target_sources(DustRender PRIVATE ${DL_SOURCES} tools/Render.cpp)
+target_include_directories(DustRender PRIVATE Source)
+target_compile_definitions(DustRender PRIVATE ${DL_COMMON_DEFS}
+    JucePlugin_Name="${DL_PRODUCT_NAME}" DUST_LOOPS_FX=0 JUCE_STANDALONE_APPLICATION=1)
+target_link_libraries(DustRender PRIVATE ${DL_COMMON_LIBS} juce::juce_recommended_config_flags)
+set_target_properties(DustRender PROPERTIES EXCLUDE_FROM_ALL TRUE)

@@ -380,14 +380,19 @@ DeckContent::DeckContent (DustLoopsProcessor& p)
     : processor (p),
       front (p, [this] (Knob& k) { showHint (k.valueText()); }),
       back (p, [this] (Knob& k) { showHint (k.valueText()); }),
+      browser (p),
       board (p, [this] (Knob& k) { showHint (k.valueText()); })
 {
     defaultHint = defaultHintText;
     const auto onTurn = [this] (Knob& k) { showHint (k.valueText()); };
 
     addAndMakeVisible (presetDisplay);
-    presetDisplay.setProgram (1, "Init");
-    setHint (presetDisplay, "PRESET: factory presets arrive in a later update.");
+    setHint (presetDisplay, "PRESET: click to browse the presets. The arrows step through them.");
+    presetDisplay.onClick = [this] { showView (view == View::browser ? View::front : View::browser); };
+    prevPreset.onPress = [this] { processor.presets->step (-1, browser.visibleOrder()); };
+    nextPreset.onPress = [this] { processor.presets->step (1, browser.visibleOrder()); };
+    addAndMakeVisible (prevPreset);
+    addAndMakeVisible (nextPreset);
     addAndMakeVisible (speedReadout);
     setHint (speedReadout, "SPEED: the tape's actual speed right now (it glides, it doesn't jump).");
     addAndMakeVisible (tempoReadout);
@@ -404,44 +409,95 @@ DeckContent::DeckContent (DustLoopsProcessor& p)
         synthKnob = std::make_unique<Knob> (p.apvts, ID::synth::level, "Synth", "SYNTH: level of the built-in synth.", Knob::Size::small, 8);
         synthKnob->onTurn = onTurn;
         addAndMakeVisible (*synthKnob);
+
+        synthStrip = std::make_unique<SynthStrip> (p, onTurn);
+        synthStrip->onEdit = [this] { showView (view == View::edit ? View::front : View::edit); };
+        addAndMakeVisible (*synthStrip);
+        synthEdit = std::make_unique<SynthEditPanel> (p, onTurn);
+        addChildComponent (*synthEdit);
     }
 
-    backButton.onPress = [this] { showBack (! back.isVisible()); };
+    backButton.onPress = [this] { showView (view == View::back ? View::front : View::back); };
     addAndMakeVisible (backButton);
     addAndMakeVisible (front);
     addChildComponent (back);
+    browser.onClose = [this] { showView (View::front); };
+    browser.onHint = [this] (const String& text) { showHint (text); };
+    addChildComponent (browser);
     addAndMakeVisible (board);
     addAndMakeVisible (hintStrip);
     hintStrip.setText (defaultHint);
 
     back.update();
+    updatePresetDisplay();
     addMouseListener (this, true);
     setSize (logicalWidth, logicalHeight);
 }
 
-void DeckContent::showBack (bool showIt)
+void DeckContent::showView (View v)
 {
-    back.setVisible (showIt);
-    front.setVisible (! showIt);
-    backButton.setLabel (showIt ? "Front" : "Back");
+    view = v;
+    front.setVisible (v == View::front);
+    back.setVisible (v == View::back);
+    browser.setVisible (v == View::browser);
+    if (synthEdit != nullptr)
+    {
+        synthEdit->setVisible (v == View::edit);
+        synthEdit->update();
+    }
+    if (synthStrip != nullptr)
+        synthStrip->setEditShown (v == View::edit);
+    backButton.setLabel (v == View::back ? "Front" : "Back");
     back.update();
+
+    // The hint strip sits in the gap in the middle of the deck, or along the bottom of the other pages.
+    const auto hintY = v == View::front || v == View::back ? deckTop + 292 : deckTop + frontHeight - 34;
+    hintStrip.setBounds (20, hintY, 960, 30);
     hintStrip.toFront (false);
+    defaultHint = v == View::browser ? String ("PRESETS: click one to hear it while you play, double-click to load it and close. "
+                                               "The star marks a favourite.")
+                : v == View::edit ? String ("SYNTH EDIT: every synth setting. Point at any control to see what it does. DECK goes back.")
+                                  : String (defaultHintText);
+    showHint (defaultHint);
 }
 
 void DeckContent::resized()
 {
-    presetDisplay.setBounds (226, 13, 316, 46);
-    speedReadout.setBounds (560, 8, 96, 56);
-    tempoReadout.setBounds (668, 8, 96, 56);
-    inputKnob->setBounds (782, 2, 64, 68);
+    presetDisplay.setBounds (226, 13, 276, 46);
+    prevPreset.setBounds (508, 15, 32, 42);
+    nextPreset.setBounds (542, 15, 32, 42);
+    speedReadout.setBounds (584, 8, 86, 56);
+    tempoReadout.setBounds (676, 8, 86, 56);
+    inputKnob->setBounds (772, 2, 64, 68);
     if (synthKnob != nullptr)
-        synthKnob->setBounds (846, 2, 64, 68);
+        synthKnob->setBounds (840, 2, 64, 68);
     backButton.setBounds (918, 22, 66, 28);
 
-    front.setBounds (0, topHeight, logicalWidth, deckHeight - topHeight);
+    if (synthStrip != nullptr)
+        synthStrip->setBounds (0, topHeight, logicalWidth, synthHeight);
+    const Rectangle<int> deckArea (0, deckTop, logicalWidth, frontHeight);
+    front.setBounds (deckArea);
+    back.setBounds (deckArea);
+    browser.setBounds (deckArea);
+    if (synthEdit != nullptr)
+        synthEdit->setBounds (deckArea);
     board.setBounds (0, deckHeight, logicalWidth, PedalBoardView::height);
-    back.setBounds (front.getBounds());
-    hintStrip.setBounds (20, topHeight + 292, 960, 30);
+    showView (view);
+}
+
+void DeckContent::updatePresetDisplay()
+{
+    const auto& pm = *processor.presets;
+    const auto* preset = pm.currentPreset();
+    String code = "--", name = "Init";
+    if (preset != nullptr)
+    {
+        code = preset->isFactory ? String (pm.currentIndex() + 1).paddedLeft ('0', 2) : String ("US");
+        name = preset->name;
+    }
+    if (pm.isModified())
+        name << "*";
+    presetDisplay.setProgram (code, name.toUpperCase());
 }
 
 void DeckContent::paint (Graphics& g)
@@ -475,8 +531,18 @@ void DeckContent::update (float frameSeconds)
     hintStrip.setRecording (anyArmed && ! frozen && std::abs (speedNow) > 0.05f);
 
     presetDisplay.advance (frameSeconds);
+    updatePresetDisplay();
     if (front.isVisible()) front.update (frameSeconds);
     if (back.isVisible()) back.update();
+    if (synthEdit != nullptr && synthEdit->isVisible()) synthEdit->update();
+
+    // Presets loaded from elsewhere (Logic's preset menu, the arrows) show up in the browser's list.
+    const auto presetState = std::make_pair (processor.presets->currentIndex(), (int) processor.presets->presets().size());
+    if (presetState != lastPresetState)
+    {
+        lastPresetState = presetState;
+        if (browser.isVisible()) browser.refresh();
+    }
 }
 
 void DeckContent::showHint (const String& text)

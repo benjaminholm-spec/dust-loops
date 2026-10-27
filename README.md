@@ -35,7 +35,26 @@ open "build/DustLoops_artefacts/Release/Standalone/Dust Loops.app"
 If Logic doesn't show a new build: quit Logic, run `./build.sh`, and reopen Logic. If it still doesn't appear, go to **Logic Pro → Settings → Plug-in Manager**, select the Dust Loops entries and click **Reset & Rescan Selection**.
 
 ## How to play it
-The front of the plugin is a cassette deck. Hover over any control and the strip across the middle tells you what it does.
+The plugin has a synth strip at the top, a cassette deck in the middle and a pedalboard at the bottom. Hover over any control and the hint strip tells you what it does.
+
+**Presets first.** The red display at the top shows the current preset. Click ◀ ▶ to step through presets, or click the display to open the browser:
+- banks on the left (All, Favourites, Hazy Memories, Machine Drones, Night Bus, Utility, User)
+- a search box: try "rain", "drone" or "bells"
+- one click loads a preset so you can audition it while you play, and a double-click loads it and closes the browser
+- the star marks a favourite
+- **SAVE** / **SAVE AS** store your own presets in `~/Music/Dust Loops/Presets` (the User bank), and **FOLDER** opens that folder
+- a `*` after the name means you've changed something since loading it
+
+Logic's own preset menu (top of the plugin window) also lists the factory presets.
+
+**The synth strip** (instrument only):
+- **DCO / VCO / ENSEMBLE** pick the synth: a warm Juno-style DCO, two drifting Prophet-style VCOs, or an old string machine.
+- **BLOOM** makes notes swell in and fade out long. **MOTION** adds vibrato and a breathing filter (the mod wheel turns it up too). **WARP** detunes and wobbles the pitch. **HAZE** makes it darker, softer and further away.
+- **CUTOFF**, **RESO**, **ATTACK** and **RELEASE** are the basics. **ATMOS** adds vinyl crackle, rain and hum.
+- **EDIT** opens the full synth page (oscillators, voice mode and glide, filter and its envelope, amp envelope, LFO, chorus, Atmos). Click **DECK** to go back.
+- Velocity and aftertouch open the filter. The sustain pedal works. The mod wheel drives MOTION.
+
+**The deck:**
 
 1. **Play a chord.** Everything you play goes onto three tape loops (A, B and C) of different lengths, so the repeats drift against each other.
 2. **FEED** sets how long it lasts. Low: each repeat fades quickly. High: layers pile up into a drone.
@@ -88,13 +107,27 @@ Source/DSP/         allocation-free DSP building blocks (Safety.h: NaN scrub, li
 Source/Tape/        TapeMachine.h: the three loops / echo, wear, varispeed, transport
 Source/Pedals/      Pedals.h: Dirt, Warble, DriftFilter, Cloud, Hall + the PedalBoard (main + in-loop copies)
 Source/Gui/         the deck: parts (knobs, keys, cassette...), front/back panels, pedalboard
-Source/Synth/       synth engine
+Source/Synth/       SynthEngine.h (voices, models, macros, MIDI), BlepOsc.h, Chorus.h (Juno BBD + ensemble), Atmos.h
+Source/Presets/     PresetManager: factory + user presets, favourites, search, Logic's preset menu
 Source/Plugin/      processor + editor (one class serves both plugins; DUST_LOOPS_FX switches the synth out)
 tests/              unit tests (run by build.sh, or: build/DustLoopsTests_artefacts/Release/DustLoopsTests)
 assets/             Dust Planet Records logo
 tools/              Snapshot.cpp renders the UI to PNG (cmake --build build --target DustSnapshot)
-presets/            factory presets as JSON (later)
+                    Render.cpp renders every preset and reports levels (cmake --build build --target DustRender)
+                    make_presets.py wrote the starting set of factory presets
+presets/            factory presets as JSON, one folder per bank; built into the plugin
 ```
+
+## Presets as files
+A preset is a JSON file:
+```json
+{ "name": "Cassette Afternoon", "bank": "Hazy Memories", "description": "...",
+  "pedalOrder": "dirt,warble,drift,tape,cloud,hall",
+  "params": { "synth.model": "DCO-Poly", "synth.cutoff": 1500, "pedal.hall.on": true } }
+```
+Values are in real units (Hz, seconds, dB), and choices are given by name. Anything left out loads at its default. Transport keys, CLEAR, FREEZE and INPUT are never stored, so loading a preset never stops or wipes the tape. To change a factory preset, edit its file in `presets/` and rebuild. Your own presets in `~/Music/Dust Loops/Presets` can be edited the same way.
+
+Loudness: `DustRender --trims tools/preset_trims.json` measures each preset and updates the trims. `python3 tools/make_presets.py` then rewrites the JSON with the trims applied, targeting about -18 dBFS.
 
 ## Renaming
 Change `DL_PRODUCT_NAME` (and the codes and bundle ID, if you like) at the top of `CMakeLists.txt`, then delete `build/` and run `./build.sh`. Saved projects keep working, because the internal state ID doesn't depend on the name. If you change the codes, though, Logic will see it as a new plugin.

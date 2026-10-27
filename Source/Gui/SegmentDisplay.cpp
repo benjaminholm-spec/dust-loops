@@ -53,6 +53,7 @@ uint16 glyph (juce_wchar ch)
         case 'Z': return A | D | K | L;
         case '-': return G1 | G2;
         case '+': return G1 | G2 | J | M;
+        case '*': return G1 | G2 | H | J | K | L | M | N;
         case '/': return K | L;
         case '\'': return J;
         default:  return 0;
@@ -88,9 +89,11 @@ SegmentDisplay::SegmentDisplay()
     setTitle ("Preset display");
 }
 
-void SegmentDisplay::setProgram (int number, const String& newName)
+void SegmentDisplay::setProgram (const String& code, const String& newName)
 {
-    programText = String (number).paddedLeft ('0', 2);
+    if (code == programText && newName == name)
+        return;
+    programText = code.substring (0, 2).paddedLeft (' ', 2);
     if (newName != name)
     {
         name = newName;

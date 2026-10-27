@@ -3,9 +3,10 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Core/Identity.h"
 #include "DSP/Safety.h"
-#include "Synth/SineVoice.h"
+#include "Synth/SynthEngine.h"
 #include "Tape/TapeMachine.h"
 #include "Pedals/Pedals.h"
+#include "Presets/PresetManager.h"
 
 // One processor class for both plugins. The FX build (DUST_LOOPS_FX=1) has no synth: its main input
 // feeds the tape. The instrument's input bus is a sidechain that Logic can route another track into.
@@ -31,16 +32,18 @@ public:
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return 10.0; }
 
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return "Init"; }
+    // Logic's preset menu lists the factory presets.
+    int getNumPrograms() override { return std::max (1, presets->numFactory()); }
+    int getCurrentProgram() override;
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
+    std::unique_ptr<PresetManager> presets;
     const dust::TapeMachine& getTape() const noexcept { return tape; }
 
     // Post-limiter peak per channel, for the meters.
@@ -59,16 +62,16 @@ public:
     float getDriftCutoff() const noexcept { return pedals.driftCutoff(); }
 
 private:
-    static constexpr int numVoices = 8;
     static BusesProperties makeBuses();
 
     void timerCallback() override;
     void readTapeSettings();
     void readPedalSettings();
+    void readSynthSettings();
     void handleKeys();
 
-    juce::Synthesiser synth;
-    std::array<dust::SineVoice*, numVoices> voices {};
+    dust::SynthEngine synth;
+    dust::SynthSettings synthSettings;
     juce::AudioBuffer<float> inputScratch, tapeIn;
     dust::TapeMachine tape;
     dust::TapeSettings tapeSettings;
@@ -83,7 +86,19 @@ private:
     std::atomic<float>* masterParam = nullptr;
     std::atomic<float>* inputGainParam = nullptr;
     std::atomic<float>* synthLevelParam = nullptr;
-    std::atomic<float> *attackParam = nullptr, *decayParam = nullptr, *sustainParam = nullptr, *releaseParam = nullptr;
+
+    struct SynthParams
+    {
+        std::atomic<float> *model, *voiceMode, *glide, *bendRange, *slop;
+        std::array<std::atomic<float>*, 4> macro;
+        std::atomic<float> *saw, *pulse, *pw, *pwm, *sub, *noise;
+        std::atomic<float> *osc1Wave, *osc2Wave, *osc2Semi, *osc2Detune, *osc2Level, *sync, *polyModPitch, *polyModPw, *drive;
+        std::atomic<float> *ensFeet, *ensBright, *ensEnsemble;
+        std::atomic<float> *cutoff, *resonance, *hpf, *filterEnv, *keyTrack, *velToFilter, *atToFilter, *fAttack, *fDecay, *fSustain, *fRelease;
+        std::atomic<float> *attack, *decay, *sustain, *release, *velToAmp;
+        std::atomic<float> *lfoRate, *lfoDelay, *lfoShape, *lfoPitch, *lfoFilter, *lfoPwm, *chorus, *chorusMix;
+        std::atomic<float> *atmosLevel, *crackle, *rain, *hum, *humFreq, *atmosTone, *atmosAlways;
+    } sp {};
 
     struct TapeParams
     {
@@ -110,6 +125,7 @@ private:
 
     // REC changes loop arm parameters, which must happen on the message thread.
     std::atomic<bool> recKeyPressed { false };
+    std::atomic<int> pendingProgram { -1 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DustLoopsProcessor)
 };

@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.4.0 — Synth and presets (2026-10-27)
+The plain sine wave is gone. The real synth has three models:
+- **DCO-Poly** (Juno-style): saw, pulse with PWM, sub and noise from one steady oscillator, plus the BBD chorus (I, II, I+II).
+- **VCO-Poly** (Prophet-style): two drifting oscillators with saw-to-pulse wave, semitone and detune, hard sync, poly-mod (filter envelope and oscillator 2 bend oscillator 1, and move the pulse width) and filter drive.
+- **Ensemble** (string machine): divide-down saw registers (8', 8'+4', 16'+8', 16'+8'+4'), brightness, and a three-phase ensemble chorus.
+
+All three share:
+- a 4-pole ladder filter with key tracking, velocity and aftertouch, plus a high-pass
+- filter and amp envelopes
+- an LFO (triangle, sine, square, random) with delay, going to pitch, filter and PWM
+- 8 voices, or Mono / Legato with glide; bend range, sustain pedal, poly and channel aftertouch
+- slop: per-note detune, cutoff and envelope spread, and slow pitch drift (most on the VCO)
+
+The oscillators are band-limited (polyBLEP with lookahead, including the sync edges).
+
+**Four macros:** BLOOM (slow swells), MOTION (vibrato, a breathing filter and PWM; the mod wheel adds to it), WARP (detune and tape-like wobble) and HAZE (darker, softer, further away).
+
+**Atmos:** vinyl crackle and pops, rain with droplets, and 50/60 Hz mains hum, with a tone control. It fades in while notes play, or runs all the time with ALWAYS. Instrument only.
+
+**UI:**
+- A synth strip above the deck with the model buttons, the four macros, CUTOFF, RESO, ATTACK, RELEASE and ATMOS.
+- EDIT opens a full synth page in place of the deck. Only the controls for the current model are shown.
+
+**Presets:**
+- 62 factory presets: Hazy Memories (20), Machine Drones (20), Night Bus (15) and Utility (7). Each has a description, and all are level-matched to about -18 dBFS.
+- They're stored as JSON in `presets/` and built into the plugin. Logic's preset menu lists them.
+- The browser has banks, favourites (saved globally), search, audition on click, Save, Save As, Delete (press twice) and a folder button.
+- ◀ ▶ step through the browser's current list.
+- The project remembers which preset was loaded and whether it was edited (shown with `*`).
+- A fresh instance starts on the first preset.
+
+**Other:**
+- The Atmos parameters are now in the instrument only.
+- The window is 1000 × 1014 at 100 %, and the FX version is unchanged at 1000 × 902.
+- Logic preset changes requested off the main thread are applied on it.
+- `tools/Render.cpp` renders every preset and reports loudness, peak, DC and tail. `tools/make_presets.py` writes the JSON.
+
+**New tests:**
+- Synth: exact silence with no notes; each model sounds, stays finite and releases; voice stealing; mono and legato; the sustain pedal; Atmos gating; extreme settings at 44.1, 96 and 192 kHz; oscillator bounds and DC.
+- Presets: count and banks; every stored key and choice is valid; loading resets unlisted parameters and never touches FREEZE; capture round-trip including pedal order; project state; search; every preset plays audibly and stays finite and under the ceiling.
+
 ## 0.3.0 — Pedalboard (2026-10-27)
 Five stompboxes under the deck, joined by patch cables:
 - **DIRT**: tape drive, then fuzz, then bitcrush, all on one BLEND knob. Also TONE and MIX.

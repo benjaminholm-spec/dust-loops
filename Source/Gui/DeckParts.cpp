@@ -487,14 +487,7 @@ namespace
 {
 void drawSmallKey (Graphics& g, Rectangle<float> b, const String& label, bool lit, bool pressed)
 {
-    g.setColour (Colours::black.withAlpha (0.8f));
-    g.fillRoundedRectangle (b, 3.0f);
-    const auto key = b.reduced (1.5f).translated (0.0f, pressed ? 1.0f : 0.0f);
-    ColourGradient face (Colour (0xff2a2a2c), key.getX(), key.getY(), Colour (0xff111112), key.getX(), key.getBottom(), false);
-    g.setGradientFill (face);
-    g.fillRoundedRectangle (key, 2.5f);
-    g.setColour (Colours::white.withAlpha (pressed ? 0.04f : 0.1f));
-    g.drawLine (key.getX() + 2.0f, key.getY() + 0.8f, key.getRight() - 2.0f, key.getY() + 0.8f, 0.8f);
+    const auto key = drawKeyCap (g, b, pressed);
 
     const auto ledC = Point<float> (key.getX() + 9.0f, key.getCentreY());
     g.setColour (lit ? ledRed : Colour (0xff3a0a07));
@@ -511,6 +504,39 @@ void drawSmallKey (Graphics& g, Rectangle<float> b, const String& label, bool li
 }
 } // namespace
 
+Rectangle<float> drawKeyCap (Graphics& g, Rectangle<float> b, bool pressed)
+{
+    g.setColour (Colours::black.withAlpha (0.8f));
+    g.fillRoundedRectangle (b, 3.0f);
+    const auto key = b.reduced (1.5f).translated (0.0f, pressed ? 1.0f : 0.0f);
+    ColourGradient face (Colour (0xff2a2a2c), key.getX(), key.getY(), Colour (0xff111112), key.getX(), key.getBottom(), false);
+    g.setGradientFill (face);
+    g.fillRoundedRectangle (key, 2.5f);
+    g.setColour (Colours::white.withAlpha (pressed ? 0.04f : 0.1f));
+    g.drawLine (key.getX() + 2.0f, key.getY() + 0.8f, key.getRight() - 2.0f, key.getY() + 0.8f, 0.8f);
+    return key;
+}
+
+ArrowButton::ArrowButton (bool pointsRight, const String& hint) : right (pointsRight)
+{
+    setHint (*this, hint);
+}
+
+void ArrowButton::mouseDown (const MouseEvent&) { held = true; repaint(); if (onPress) onPress(); }
+void ArrowButton::mouseUp (const MouseEvent&)   { held = false; repaint(); }
+
+void ArrowButton::paint (Graphics& g)
+{
+    const auto key = drawKeyCap (g, getLocalBounds().toFloat(), held);
+    const auto c = key.getCentre();
+    const auto s = std::min (key.getWidth(), key.getHeight()) * 0.22f;
+    Path arrow;
+    if (right) arrow.addTriangle (c.x - s * 0.8f, c.y - s, c.x - s * 0.8f, c.y + s, c.x + s, c.y);
+    else       arrow.addTriangle (c.x + s * 0.8f, c.y - s, c.x + s * 0.8f, c.y + s, c.x - s, c.y);
+    g.setColour (Art::Colours::silk);
+    g.fillPath (arrow);
+}
+
 void SmallButton::paint (Graphics& g)
 {
     drawSmallKey (g, getLocalBounds().toFloat(), label, isLit(), held);
@@ -523,7 +549,7 @@ ActionButton::ActionButton (const String& labelText, const String& hint) : label
 
 void ActionButton::mouseDown (const MouseEvent&) { held = true; repaint(); if (onPress) onPress(); }
 void ActionButton::mouseUp (const MouseEvent&)   { held = false; repaint(); if (onRelease) onRelease(); }
-void ActionButton::paint (Graphics& g)           { drawSmallKey (g, getLocalBounds().toFloat(), label, held, held); }
+void ActionButton::paint (Graphics& g)           { drawSmallKey (g, getLocalBounds().toFloat(), label, held || (isLit && isLit()), held); }
 
 //==============================================================================
 LedReadout::LedReadout (int numDigits, const String& cap) : digits (numDigits), caption (cap)

@@ -67,16 +67,32 @@ DustLoopsProcessor::DustLoopsProcessor()
 
     if constexpr (! dust::kIsFx)
     {
-        synthLevelParam = get (ID::synth::level);
-        attackParam = get (ID::synth::attack);
-        decayParam = get (ID::synth::decay);
-        sustainParam = get (ID::synth::sustain);
-        releaseParam = get (ID::synth::release);
-
-        for (auto& v : voices)
-            synth.addVoice (v = new dust::SineVoice());
-        synth.addSound (new dust::SineSound());
+        using namespace ID::synth;
+        synthLevelParam = get (level);
+        sp.model = get (model);           sp.voiceMode = get (voiceMode);   sp.glide = get (glide);
+        sp.bendRange = get (bendRange);   sp.slop = get (slop);
+        for (size_t i = 0; i < 4; ++i) sp.macro[i] = get (macro[i]);
+        sp.saw = get (saw);               sp.pulse = get (pulse);           sp.pw = get (pw);
+        sp.pwm = get (pwm);               sp.sub = get (sub);               sp.noise = get (noise);
+        sp.osc1Wave = get (osc1Wave);     sp.osc2Wave = get (osc2Wave);     sp.osc2Semi = get (osc2Semi);
+        sp.osc2Detune = get (osc2Detune); sp.osc2Level = get (osc2Level);   sp.sync = get (ID::synth::sync);
+        sp.polyModPitch = get (polyModPitch); sp.polyModPw = get (polyModPw); sp.drive = get (drive);
+        sp.ensFeet = get (ensFeet);       sp.ensBright = get (ensBright);   sp.ensEnsemble = get (ensEnsemble);
+        sp.cutoff = get (cutoff);         sp.resonance = get (resonance);   sp.hpf = get (hpf);
+        sp.filterEnv = get (filterEnv);   sp.keyTrack = get (keyTrack);     sp.velToFilter = get (velToFilter);
+        sp.atToFilter = get (atToFilter); sp.fAttack = get (fAttack);       sp.fDecay = get (fDecay);
+        sp.fSustain = get (fSustain);     sp.fRelease = get (fRelease);     sp.attack = get (attack);
+        sp.decay = get (decay);           sp.sustain = get (sustain);       sp.release = get (release);
+        sp.velToAmp = get (velToAmp);     sp.lfoRate = get (lfoRate);       sp.lfoDelay = get (lfoDelay);
+        sp.lfoShape = get (lfoShape);     sp.lfoPitch = get (lfoPitch);     sp.lfoFilter = get (lfoFilter);
+        sp.lfoPwm = get (lfoPwm);         sp.chorus = get (chorus);         sp.chorusMix = get (chorusMix);
+        sp.atmosLevel = get (ID::atmos::level); sp.crackle = get (ID::atmos::crackle); sp.rain = get (ID::atmos::rain);
+        sp.hum = get (ID::atmos::hum);    sp.humFreq = get (ID::atmos::humFreq); sp.atmosTone = get (ID::atmos::tone);
+        sp.atmosAlways = get (ID::atmos::always);
     }
+
+    presets = std::make_unique<PresetManager> (apvts, [this] { return orderToString (getPedalOrder()); },
+                                               [this] (const juce::String& s) { setPedalOrder (orderFromString (s)); });
 
     startTimerHz (30);
 }
@@ -102,7 +118,7 @@ bool DustLoopsProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
 
 void DustLoopsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    synth.setCurrentPlaybackSampleRate (sampleRate);
+    synth.prepare (sampleRate);
     const auto maxBlock = std::max (samplesPerBlock, 512);
     inputScratch.setSize (2, maxBlock);
     tapeIn.setSize (2, maxBlock);
@@ -157,6 +173,31 @@ void DustLoopsProcessor::readTapeSettings()
         l.mute = on (tp.mute[i]);
         l.armed = on (tp.rec[i]);
     }
+}
+
+void DustLoopsProcessor::readSynthSettings()
+{
+    auto& s = synthSettings;
+    const auto f = [] (const std::atomic<float>* p) { return p->load(); };
+    const auto i = [] (const std::atomic<float>* p) { return (int) p->load(); };
+    s.model = i (sp.model);           s.voiceMode = i (sp.voiceMode);   s.glide = f (sp.glide);
+    s.bendRange = f (sp.bendRange);   s.slop = f (sp.slop);
+    for (size_t m = 0; m < 4; ++m) s.macro[m] = f (sp.macro[m]);
+    s.saw = f (sp.saw);               s.pulse = f (sp.pulse);           s.pw = f (sp.pw);
+    s.pwm = f (sp.pwm);               s.sub = f (sp.sub);               s.noise = f (sp.noise);
+    s.osc1Wave = f (sp.osc1Wave);     s.osc2Wave = f (sp.osc2Wave);     s.osc2Semi = f (sp.osc2Semi);
+    s.osc2Detune = f (sp.osc2Detune); s.osc2Level = f (sp.osc2Level);   s.sync = on (sp.sync);
+    s.polyModPitch = f (sp.polyModPitch); s.polyModPw = f (sp.polyModPw); s.drive = f (sp.drive);
+    s.ensFeet = i (sp.ensFeet);       s.ensBright = f (sp.ensBright);   s.ensEnsemble = f (sp.ensEnsemble);
+    s.cutoff = f (sp.cutoff);         s.resonance = f (sp.resonance);   s.hpf = f (sp.hpf);
+    s.filterEnv = f (sp.filterEnv);   s.keyTrack = f (sp.keyTrack);     s.velToFilter = f (sp.velToFilter);
+    s.atToFilter = f (sp.atToFilter); s.fAttack = f (sp.fAttack);       s.fDecay = f (sp.fDecay);
+    s.fSustain = f (sp.fSustain);     s.fRelease = f (sp.fRelease);     s.attack = f (sp.attack);
+    s.decay = f (sp.decay);           s.sustain = f (sp.sustain);       s.release = f (sp.release);
+    s.velToAmp = f (sp.velToAmp);     s.lfoRate = f (sp.lfoRate);       s.lfoDelay = f (sp.lfoDelay);
+    s.lfoShape = i (sp.lfoShape);     s.lfoPitch = f (sp.lfoPitch);     s.lfoFilter = f (sp.lfoFilter);
+    s.lfoPwm = f (sp.lfoPwm);         s.chorus = i (sp.chorus);         s.chorusMix = f (sp.chorusMix);
+    s.atmos = { f (sp.atmosLevel), f (sp.crackle), f (sp.rain), f (sp.hum), f (sp.atmosTone), i (sp.humFreq) == 1, on (sp.atmosAlways) };
 }
 
 void DustLoopsProcessor::readPedalSettings()
@@ -251,6 +292,9 @@ void DustLoopsProcessor::handleKeys()
 
 void DustLoopsProcessor::timerCallback()
 {
+    if (const auto program = pendingProgram.exchange (-1); program >= 0)
+        presets->load (program);
+
     // REC key: toggle the arm of the selected loop, or of all three when "All" is selected.
     if (recKeyPressed.exchange (false))
     {
@@ -309,10 +353,8 @@ void DustLoopsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     tapeIn.clear();
     if constexpr (! dust::kIsFx)
     {
-        const juce::ADSR::Parameters env { attackParam->load(), decayParam->load(), sustainParam->load(), releaseParam->load() };
-        for (auto* v : voices)
-            v->envelopeParams = env;
-        synth.renderNextBlock (tapeIn, midi, 0, numSamples);
+        readSynthSettings();
+        synth.process (tapeIn.getWritePointer (0), tapeIn.getWritePointer (1), numSamples, midi, synthSettings);
         synthGain.setTargetValue (dbToGain (synthLevelParam));
         synthGain.applyGain (tapeIn, numSamples);
     }
@@ -376,9 +418,32 @@ juce::AudioProcessorEditor* DustLoopsProcessor::createEditor()
     return new DustLoopsEditor (*this);
 }
 
+int DustLoopsProcessor::getCurrentProgram()
+{
+    const auto c = presets->currentIndex();
+    return c >= 0 && c < presets->numFactory() ? c : 0;
+}
+
+void DustLoopsProcessor::setCurrentProgram (int index)
+{
+    if (juce::MessageManager::existsAndIsCurrentThread())
+        presets->load (index);
+    else
+        pendingProgram.store (index); // picked up by the timer on the message thread
+}
+
+const juce::String DustLoopsProcessor::getProgramName (int index)
+{
+    const auto& list = presets->presets();
+    return index >= 0 && index < presets->numFactory() ? list[(size_t) index].bank + ": " + list[(size_t) index].name
+                                                         : juce::String ("Init");
+}
+
 void DustLoopsProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto xml = apvts.copyState().createXml())
+    auto state = apvts.copyState();
+    presets->writeState (state);
+    if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
@@ -391,10 +456,14 @@ void DustLoopsProcessor::setStateInformation (const void* data, int sizeInBytes)
             const auto order = orderFromString (state.getProperty (pedalOrderProp, defaultPedalOrder).toString());
             apvts.replaceState (state);
             setPedalOrder (order);
+            presets->readState (state);
         }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new DustLoopsProcessor();
+    // A fresh instance in a host starts on the first factory preset (tests start from the defaults).
+    auto* p = new DustLoopsProcessor();
+    p->presets->load (0);
+    return p;
 }

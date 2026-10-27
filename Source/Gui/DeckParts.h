@@ -12,6 +12,30 @@ using APVTS = juce::AudioProcessorValueTreeState;
 
 inline void setHint (juce::Component& c, const juce::String& hint) { c.getProperties().set ("hint", hint); }
 
+// Caches a painted background at the screen's physical resolution.
+class CachedBackground
+{
+public:
+    template <typename Painter>
+    void draw (juce::Graphics& g, juce::Rectangle<int> area, Painter&& painter)
+    {
+        const auto scale = g.getInternalContext().getPhysicalPixelScaleFactor();
+        if (image.isNull() || std::abs (scale - imageScale) > 0.01f || image.getWidth() != (int) std::ceil ((float) area.getWidth() * scale))
+        {
+            imageScale = scale;
+            image = juce::Image (juce::Image::ARGB, (int) std::ceil ((float) area.getWidth() * scale),
+                                 (int) std::ceil ((float) area.getHeight() * scale), true);
+            painter (image, scale);
+        }
+        g.drawImage (image, area.toFloat());
+    }
+
+private:
+    juce::Image image;
+    float imageScale = 0.0f;
+};
+
+
 // Embossed white letters on black label-maker tape, like the labels stuck on a modded deck.
 void drawDymoLabel (juce::Graphics&, juce::Point<float> centre, const juce::String& text, float height, int seed);
 
@@ -158,7 +182,8 @@ class ActionButton : public juce::Component
 public:
     ActionButton (const juce::String& label, const juce::String& hint);
     std::function<void()> onPress, onRelease;
-    void setLabel (const juce::String& l) { label = l; repaint(); }
+    std::function<bool()> isLit; // optional: LED lit while this returns true
+    void setLabel (const juce::String& l) { if (l != label) { label = l; repaint(); } }
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
@@ -166,6 +191,23 @@ public:
 private:
     juce::String label;
     bool held = false;
+};
+
+// The black key face shared by the small buttons; returns the face area.
+juce::Rectangle<float> drawKeyCap (juce::Graphics&, juce::Rectangle<float> bounds, bool pressed);
+
+// A small key with a triangle (the preset arrows).
+class ArrowButton : public juce::Component
+{
+public:
+    ArrowButton (bool pointsRight, const juce::String& hint);
+    std::function<void()> onPress;
+    void paint (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+
+private:
+    bool right, held = false;
 };
 
 //==============================================================================

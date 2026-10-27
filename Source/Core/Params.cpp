@@ -92,12 +92,14 @@ std::unique_ptr<Group> synthGroup()
     b.integer (bendRange, "Synth Bend Range", 0, 12, 2);
     b.flt (level, "Synth Level", -48.0f, 6.0f, -6.0f, Unit::db);
     b.flt (slop, "Synth Slop", 0.0f, 1.0f, 0.2f);
+    // Macros rest at 0 (no effect); the mod wheel pushes MOTION up.
+    static constexpr const char* macroNames[] { "Bloom", "Motion", "Warp", "Haze" };
     for (int i = 0; i < 4; ++i)
-        b.flt (macro[i], "Macro " + juce::String (i + 1), 0.0f, 1.0f, 0.5f);
+        b.flt (macro[i], macroNames[i], 0.0f, 1.0f, 0.0f);
 
     b.flt (saw, "DCO Saw", 0.0f, 1.0f, 1.0f);
     b.flt (pulse, "DCO Pulse", 0.0f, 1.0f, 0.0f);
-    b.flt (pw, "DCO Pulse Width", 0.05f, 0.95f, 0.5f);
+    b.flt (pw, "Pulse Width", 0.05f, 0.95f, 0.5f);
     b.flt (pwm, "DCO PWM", 0.0f, 1.0f, 0.0f);
     b.flt (sub, "DCO Sub", 0.0f, 1.0f, 0.0f);
     b.flt (noise, "DCO Noise", 0.0f, 1.0f, 0.0f);
@@ -286,7 +288,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout (bool includeSy
     layout.add (globalGroup());
     if (includeSynth)
         layout.add (synthGroup());
-    layout.add (atmosGroup());
+    if (includeSynth)
+        layout.add (atmosGroup());
     layout.add (tapeGroup());
     layout.add (transportGroup());
     for (int i = 0; i < ID::loop::count; ++i)

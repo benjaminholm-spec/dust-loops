@@ -1,0 +1,158 @@
+#include "TestHelpers.h"
+#include "Core/Params.h"
+
+namespace
+{
+using namespace test;
+
+float realValue (DustLoopsProcessor& p, const juce::String& id)
+{
+    auto* param = p.apvts.getParameter (id);
+    return param->convertFrom0to1 (param->getValue());
+}
+
+class PresetTests : public juce::UnitTest
+{
+public:
+    PresetTests() : juce::UnitTest ("Presets", "Dust Loops") {}
+
+    void runTest() override
+    {
+        DustLoopsProcessor p;
+        auto& pm = *p.presets;
+        const auto& list = pm.presets();
+
+        beginTest ("at least 60 factory presets in the four banks");
+        {
+            expectGreaterOrEqual (pm.numFactory(), 60);
+            std::map<juce::String, int> perBank;
+            for (int i = 0; i < pm.numFactory(); ++i)
+                ++perBank[list[(size_t) i].bank];
+            expectGreaterOrEqual (perBank["Hazy Memories"], 18);
+            expectGreaterOrEqual (perBank["Machine Drones"], 18);
+            expectGreaterOrEqual (perBank["Night Bus"], 13);
+            expectGreaterOrEqual (perBank["Utility"], 5);
+            expectEquals ((int) perBank.size(), 4);
+            expectEquals (p.getNumPrograms(), pm.numFactory());
+        }
+
+        beginTest ("every stored value names a real parameter and a valid choice");
+        {
+            for (int i = 0; i < pm.numFactory(); ++i)
+            {
+                const auto& preset = list[(size_t) i];
+                expect (preset.name.isNotEmpty() && preset.description.isNotEmpty(), "preset " + juce::String (i) + " needs a name and description");
+                auto* params = preset.data["params"].getDynamicObject();
+                expect (params != nullptr, preset.name);
+                if (params == nullptr) continue;
+                for (auto& prop : params->getProperties())
+                {
+                    const auto id = prop.name.toString();
+                    auto* param = p.apvts.getParameter (id);
+                    expect (param != nullptr, preset.name + ": unknown parameter " + id);
+                    if (param == nullptr) continue;
+                    expect (PresetManager::isStored (id), preset.name + ": stores " + id);
+                    if (prop.value.isString())
+                        expect (param->getAllValueStrings().contains (prop.value.toString()),
+                                preset.name + ": bad choice " + prop.value.toString() + " for " + id);
+                    else if (! prop.value.isBool())
+                    {
+                        const auto range = param->getNormalisableRange();
+                        const auto v = (float) (double) prop.value;
+                        expect (v >= range.start && v <= range.end, preset.name + ": " + id + " out of range");
+                    }
+                }
+                expectEquals (DustLoopsProcessor::orderToString (DustLoopsProcessor::orderFromString (preset.data["pedalOrder"].toString())),
+                              preset.data["pedalOrder"].toString(), preset.name + ": bad pedal order");
+            }
+        }
+
+        beginTest ("loading sets the stored values and resets everything else to default");
+        {
+            setParam (p, ID::synth::glide, 1.7f);
+            setParam (p, ID::tape::freeze, 1.0f);
+            const auto index = 1;
+            pm.load (index);
+            const auto& data = list[(size_t) index].data["params"];
+            expectWithinAbsoluteError (realValue (p, ID::synth::cutoff), (float) (double) data[ID::synth::cutoff], 0.5f);
+            auto* glide = p.apvts.getParameter (ID::synth::glide);
+            expectWithinAbsoluteError (glide->getValue(), glide->getDefaultValue(), 1.0e-5f);
+            expectEquals (realValue (p, ID::tape::freeze), 1.0f, "FREEZE must not be touched by presets");
+            expect (! pm.isModified());
+            expectEquals (pm.currentIndex(), index);
+            setParam (p, ID::tape::freeze, 0.0f);
+            setParam (p, ID::synth::cutoff, 400.0f);
+            expect (pm.isModified());
+        }
+
+        beginTest ("a captured sound loads back exactly, pedal order included");
+        {
+            pm.load (5);
+            setParam (p, ID::synth::resonance, 0.77f);
+            setParam (p, ID::synth::model, 2.0f);
+            p.setPedalOrder (DustLoopsProcessor::orderFromString ("hall,tape,cloud,drift,warble,dirt"));
+            const auto snapshot = pm.capture ("Test", "User", "");
+            pm.load (0);
+            pm.applyPreset (snapshot);
+            expectWithinAbsoluteError (realValue (p, ID::synth::resonance), 0.77f, 1.0e-3f);
+            expectEquals ((int) realValue (p, ID::synth::model), 2);
+            expectEquals (DustLoopsProcessor::orderToString (p.getPedalOrder()), juce::String ("hall,tape,cloud,drift,warble,dirt"));
+        }
+
+        beginTest ("the project remembers which preset was loaded");
+        {
+            pm.load (7);
+            juce::MemoryBlock block;
+            p.getStateInformation (block);
+            DustLoopsProcessor other;
+            other.setStateInformation (block.getData(), (int) block.getSize());
+            expectEquals (other.presets->currentIndex(), 7);
+            expect (! other.presets->isModified());
+        }
+
+        beginTest ("search and favourites filter the list");
+        {
+            expectGreaterThan ((int) pm.filter ("", "rain").size(), 0);
+            expectEquals ((int) pm.filter ("Utility", "").size(), 7);
+            expectEquals ((int) pm.filter ("", "zzzz no such preset").size(), 0);
+            const auto all = pm.filter ("", "");
+            expectEquals ((int) all.size(), (int) list.size());
+        }
+
+        beginTest ("every factory preset plays: audible, finite, under the ceiling");
+        {
+            prepare (p);
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            for (int i = 0; i < pm.numFactory(); ++i)
+            {
+                pm.load (i);
+                p.prepareToPlay (sampleRate, blockSize); // fresh tape for each preset
+                juce::MidiBuffer midi;
+                for (int note : { 48, 55, 60, 64 })
+                    midi.addEvent (juce::MidiMessage::noteOn (1, note, 0.8f), 0);
+                float peak = 0.0f;
+                double sum = 0.0;
+                bool finite = true;
+                const auto blocks = (int) (3.0 * sampleRate / blockSize);
+                for (int b = 0; b < blocks; ++b)
+                {
+                    buffer.clear();
+                    p.processBlock (buffer, midi);
+                    midi.clear();
+                    finite = finite && allFinite (buffer);
+                    peak = std::max (peak, buffer.getMagnitude (0, blockSize));
+                    for (int s = 0; s < blockSize; ++s)
+                        sum += (double) buffer.getSample (0, s) * buffer.getSample (0, s);
+                }
+                const auto rms = std::sqrt (sum / (blocks * blockSize));
+                const auto& name = list[(size_t) i].name;
+                expect (finite, name + " made NaN/inf");
+                expectLessOrEqual (peak, dust::OutputLimiter::ceiling, name);
+                expectGreaterThan (rms, 0.003, name + " is nearly silent");
+            }
+        }
+    }
+};
+
+PresetTests presetTests;
+} // namespace

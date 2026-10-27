@@ -4,6 +4,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Plugin/PluginProcessor.h"
 #include "Plugin/PluginEditor.h"
+#include "Gui/Panels.h"
 
 int main (int argc, char** argv)
 {
@@ -12,6 +13,7 @@ int main (int argc, char** argv)
     outDir.createDirectory();
 
     DustLoopsProcessor processor;
+    processor.presets->load (argc > 2 ? juce::String (argv[2]).getIntValue() : 0);
     processor.setPlayConfigDetails (2, 2, 48000.0, 512);
     processor.prepareToPlay (48000.0, 512);
     juce::AudioBuffer<float> buffer (2, 512);
@@ -26,7 +28,7 @@ int main (int argc, char** argv)
     }
 
     std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
-    editor->setSize (1000, 902);
+    editor->setSize (deck::logicalWidth, deck::logicalHeight);
     for (int i = 0; i < 20; ++i) // let timers run so meters and readouts settle
     {
         juce::MessageManager::getInstance()->runDispatchLoopUntil (20);
@@ -46,22 +48,33 @@ int main (int argc, char** argv)
     };
     save ("front.png");
 
-    // Click BACK by finding the button with that label in the hierarchy
-    std::function<juce::Component* (juce::Component&)> findBack = [&] (juce::Component& c) -> juce::Component*
+    // Click a control by finding it through its hint text.
+    std::function<juce::Component* (juce::Component&, const juce::String&)> find = [&] (juce::Component& c, const juce::String& prefix) -> juce::Component*
     {
         for (auto* child : c.getChildren())
         {
-            if (child->getProperties()["hint"].toString().startsWith ("BACK PANEL")) return child;
-            if (auto* found = findBack (*child)) return found;
+            if (child->isVisible() && child->getProperties()["hint"].toString().startsWith (prefix)) return child;
+            if (auto* found = find (*child, prefix)) return found;
         }
         return nullptr;
     };
-    if (auto* back = findBack (*editor))
+    const auto click = [&] (const juce::String& prefix)
     {
-        back->mouseDown (juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), {}, {}, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                                           back, back, juce::Time::getCurrentTime(), {}, juce::Time::getCurrentTime(), 1, false));
-        save ("back.png");
-    }
+        if (auto* target = find (*editor, prefix))
+        {
+            const juce::MouseEvent e (juce::Desktop::getInstance().getMainMouseSource(), {}, {}, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                      target, target, juce::Time::getCurrentTime(), {}, juce::Time::getCurrentTime(), 1, false);
+            target->mouseDown (e);
+            target->mouseUp (e);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (50);
+            return true;
+        }
+        std::cout << "not found: " << prefix << std::endl;
+        return false;
+    };
+    if (click ("BACK PANEL")) { save ("back.png"); click ("BACK PANEL"); }
+    if (click ("EDIT:"))      { save ("edit.png"); click ("EDIT:"); }
+    if (click ("PRESET:"))    save ("browser.png");
     editor.reset();
     return 0;
 }

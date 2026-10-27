@@ -1,42 +1,28 @@
 #pragma once
 
+#include "Core/Identity.h"
 #include "DeckParts.h"
 #include "SegmentDisplay.h"
 #include "VuMeter.h"
 #include "PedalBoardView.h"
+#include "SynthPanels.h"
+#include "PresetBrowser.h"
 
 class DustLoopsProcessor;
 
-// The whole plugin face at its logical size (1000 x 902): deck on top, pedalboard below. The editor scales it for 75-200 %.
-//   Top strip : logo, preset display, SPEED and TEMPO readouts, INPUT/SYNTH levels, BACK.
-//   Front     : the deck - knobs on the grille, FREEZE, VU, loop LEDs, cassette, piano keys.
-//   Back      : everything else (loop lengths, tape wear, output), out of the way.
+// The whole plugin face at its logical size: top strip, synth strip (instrument only), the deck, and the
+// pedalboard below. The editor scales it for 75-200 %.
+//   Top strip : logo, preset display with arrows, SPEED and TEMPO readouts, INPUT/SYNTH levels, BACK.
+//   Synth     : model, the four macros, cutoff/resonance/attack/release, Atmos, EDIT.
+//   Deck area : one of four views - the deck front (knobs on the grille, FREEZE, VU, loop LEDs,
+//               cassette, piano keys), its back (loop lengths, tape wear, output), the synth EDIT page,
+//               or the preset browser.
 namespace deck
 {
-constexpr int logicalWidth = 1000, deckHeight = 640, logicalHeight = deckHeight + PedalBoardView::height, topHeight = 70;
-
-// Caches a painted background at the screen's physical resolution.
-class CachedBackground
-{
-public:
-    template <typename Painter>
-    void draw (juce::Graphics& g, juce::Rectangle<int> area, Painter&& painter)
-    {
-        const auto scale = g.getInternalContext().getPhysicalPixelScaleFactor();
-        if (image.isNull() || std::abs (scale - imageScale) > 0.01f || image.getWidth() != (int) std::ceil ((float) area.getWidth() * scale))
-        {
-            imageScale = scale;
-            image = juce::Image (juce::Image::ARGB, (int) std::ceil ((float) area.getWidth() * scale),
-                                 (int) std::ceil ((float) area.getHeight() * scale), true);
-            painter (image, scale);
-        }
-        g.drawImage (image, area.toFloat());
-    }
-
-private:
-    juce::Image image;
-    float imageScale = 0.0f;
-};
+constexpr int logicalWidth = 1000, topHeight = 70, frontHeight = 570;
+constexpr int synthHeight = dust::kIsFx ? 0 : SynthStrip::height;
+constexpr int deckTop = topHeight + synthHeight, deckHeight = deckTop + frontHeight;
+constexpr int logicalHeight = deckHeight + PedalBoardView::height;
 
 class FrontPanel : public juce::Component
 {
@@ -89,19 +75,28 @@ public:
     void mouseExit (const juce::MouseEvent&) override;
 
 private:
+    enum class View { front, back, edit, browser };
     void showHint (const juce::String&);
-    void showBack (bool);
+    void showView (View);
+    void updatePresetDisplay();
 
     DustLoopsProcessor& processor;
+    View view = View::front;
     HintStrip hintStrip;
     SegmentDisplay presetDisplay;
+    ArrowButton prevPreset { false, "PREVIOUS PRESET (follows the bank and search chosen in the browser)." },
+                nextPreset { true, "NEXT PRESET (follows the bank and search chosen in the browser)." };
     LedReadout speedReadout { 4, "Speed" }, tempoReadout { 4, "Tempo" };
     std::unique_ptr<Knob> inputKnob, synthKnob;
     ActionButton backButton { "Back", "BACK PANEL: loop lengths, tape wear and output. Click again to return to the deck." };
     FrontPanel front;
     BackPanel back;
+    std::unique_ptr<SynthStrip> synthStrip;
+    std::unique_ptr<SynthEditPanel> synthEdit;
+    PresetBrowser browser;
     PedalBoardView board;
     CachedBackground background;
     juce::String defaultHint;
+    std::pair<int, int> lastPresetState { -2, 0 };
 };
 } // namespace deck
