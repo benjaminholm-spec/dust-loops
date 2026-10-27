@@ -2,20 +2,26 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
+#include "Gui/DustLookAndFeel.h"
+#include "Gui/Panels.h"
 
-// Functional editor: a header strip over JUCE's generic parameter list (grouped by section).
-// The full Dust Planet front panel replaces this in milestone 6.
-class DustLoopsEditor : public juce::AudioProcessorEditor
+// Hosts the deck face at its logical size and scales it to the window (75-200 %, remembered globally).
+class DustLoopsEditor : public juce::AudioProcessorEditor,
+                        private juce::Timer
 {
 public:
     explicit DustLoopsEditor (DustLoopsProcessor&);
+    ~DustLoopsEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
-    juce::GenericAudioProcessorEditor generic;
-    juce::Image logo;
+    void timerCallback() override;
+
+    DustLookAndFeel lookAndFeel;
+    deck::DeckContent content;
+    double lastFrame = 0.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DustLoopsEditor)
 };

@@ -25,7 +25,13 @@ juce_add_binary_data(DustLoopsAssets SOURCES assets/dpr_logo_horizontal.png)
 set(DL_SOURCES
     Source/Core/Params.cpp
     Source/Plugin/PluginProcessor.cpp
-    Source/Plugin/PluginEditor.cpp)
+    Source/Plugin/PluginEditor.cpp
+    Source/Gui/Art.cpp
+    Source/Gui/DustLookAndFeel.cpp
+    Source/Gui/SegmentDisplay.cpp
+    Source/Gui/VuMeter.cpp
+    Source/Gui/DeckParts.cpp
+    Source/Gui/Panels.cpp)
 
 set(DL_COMMON_DEFS
     DUST_PRODUCT_NAME="${DL_PRODUCT_NAME}"
@@ -94,7 +100,7 @@ dust_add_plugin(DustLoopsFX
 
 # ---- Unit tests: the real processor, driven offline ---------------------------------------------
 juce_add_console_app(DustLoopsTests PRODUCT_NAME "DustLoopsTests")
-target_sources(DustLoopsTests PRIVATE ${DL_SOURCES} tests/TestMain.cpp)
+target_sources(DustLoopsTests PRIVATE ${DL_SOURCES} tests/TestMain.cpp tests/TapeTests.cpp)
 target_include_directories(DustLoopsTests PRIVATE Source)
 target_compile_definitions(DustLoopsTests PRIVATE ${DL_COMMON_DEFS}
     JucePlugin_Name="${DL_PRODUCT_NAME}" DUST_LOOPS_FX=0 JUCE_STANDALONE_APPLICATION=1)
@@ -102,3 +108,12 @@ target_link_libraries(DustLoopsTests PRIVATE ${DL_COMMON_LIBS} juce::juce_recomm
 
 enable_testing()
 add_test(NAME dsp COMMAND DustLoopsTests)
+
+# ---- UI snapshot tool (not part of the plugin) ---------------------------------------------------
+juce_add_console_app(DustSnapshot PRODUCT_NAME "DustSnapshot")
+target_sources(DustSnapshot PRIVATE ${DL_SOURCES} tools/Snapshot.cpp)
+target_include_directories(DustSnapshot PRIVATE Source)
+target_compile_definitions(DustSnapshot PRIVATE ${DL_COMMON_DEFS}
+    JucePlugin_Name="${DL_PRODUCT_NAME}" DUST_LOOPS_FX=0 JUCE_STANDALONE_APPLICATION=1 JUCE_MODAL_LOOPS_PERMITTED=1)
+target_link_libraries(DustSnapshot PRIVATE ${DL_COMMON_LIBS} juce::juce_recommended_config_flags)
+set_target_properties(DustSnapshot PROPERTIES EXCLUDE_FROM_ALL TRUE)

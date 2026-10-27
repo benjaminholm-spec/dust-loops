@@ -1,41 +1,50 @@
 #include "PluginEditor.h"
-#include "BinaryData.h"
+#include "Core/GlobalSettings.h"
 
 namespace
 {
-constexpr int headerHeight = 56;
-}
+const juce::Identifier uiScaleKey { "uiScale" };
+constexpr double minScale = 0.75, maxScale = 2.0;
+} // namespace
 
 DustLoopsEditor::DustLoopsEditor (DustLoopsProcessor& p)
-    : AudioProcessorEditor (p), generic (p)
+    : AudioProcessorEditor (p), content (p)
 {
-    logo = juce::ImageCache::getFromMemory (BinaryData::dpr_logo_horizontal_png, BinaryData::dpr_logo_horizontal_pngSize);
-    addAndMakeVisible (generic);
+    setLookAndFeel (&lookAndFeel);
+    addAndMakeVisible (content);
+
+    const auto scale = juce::jlimit (minScale, maxScale, (double) dust::settings::get (uiScaleKey, 1.0));
     setResizable (true, true);
-    setResizeLimits (480, 360, 1600, 1400);
-    setSize (640, 720);
+    setResizeLimits ((int) (deck::logicalWidth * minScale), (int) (deck::logicalHeight * minScale),
+                     (int) (deck::logicalWidth * maxScale), (int) (deck::logicalHeight * maxScale));
+    if (auto* constrainer = getConstrainer())
+        constrainer->setFixedAspectRatio ((double) deck::logicalWidth / (double) deck::logicalHeight);
+    setSize (juce::roundToInt (deck::logicalWidth * scale), juce::roundToInt (deck::logicalHeight * scale));
+
+    lastFrame = juce::Time::getMillisecondCounterHiRes();
+    startTimerHz (30);
+}
+
+DustLoopsEditor::~DustLoopsEditor()
+{
+    dust::settings::set (uiScaleKey, (double) getWidth() / deck::logicalWidth);
+    setLookAndFeel (nullptr);
 }
 
 void DustLoopsEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff111111));
-    auto header = getLocalBounds().removeFromTop (headerHeight).reduced (12, 8);
-
-    g.setColour (juce::Colour (0xffd9442b)); // LED red
-    g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
-    juce::String title (dust::kProductName);
-    if (dust::kIsFx)
-        title << " FX";
-    g.drawText (title.toUpperCase(), header, juce::Justification::centredLeft);
-
-    if (logo.isValid())
-    {
-        const auto logoArea = header.removeFromRight (header.getHeight() * logo.getWidth() / logo.getHeight());
-        g.drawImage (logo, logoArea.toFloat(), juce::RectanglePlacement::centred);
-    }
+    g.fillAll (juce::Colours::black);
 }
 
 void DustLoopsEditor::resized()
 {
-    generic.setBounds (getLocalBounds().withTrimmedTop (headerHeight));
+    content.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) deck::logicalWidth));
+}
+
+void DustLoopsEditor::timerCallback()
+{
+    const auto now = juce::Time::getMillisecondCounterHiRes();
+    const auto dt = (float) juce::jlimit (0.001, 0.1, (now - lastFrame) * 0.001);
+    lastFrame = now;
+    content.update (dt);
 }

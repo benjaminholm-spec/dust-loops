@@ -1,28 +1,10 @@
-// Unit test runner. Suites register themselves as static juce::UnitTest instances in this file
-// (and, from milestone 3 on, in the tests/*.cpp files listed in CMakeLists.txt).
-#include <juce_audio_processors/juce_audio_processors.h>
-#include "Plugin/PluginProcessor.h"
+// Unit test runner. Suites register themselves as static juce::UnitTest instances in the tests/*.cpp files.
+#include "TestHelpers.h"
 #include "Core/Params.h"
 
 namespace
 {
-constexpr double sampleRate = 48000.0;
-constexpr int blockSize = 256;
-
-void prepare (DustLoopsProcessor& p)
-{
-    p.setPlayConfigDetails (2, 2, sampleRate, blockSize);
-    p.prepareToPlay (sampleRate, blockSize);
-}
-
-bool allFinite (const juce::AudioBuffer<float>& b)
-{
-    for (int ch = 0; ch < b.getNumChannels(); ++ch)
-        for (int i = 0; i < b.getNumSamples(); ++i)
-            if (! std::isfinite (b.getSample (ch, i)))
-                return false;
-    return true;
-}
+using namespace test;
 
 struct SafetyTests : juce::UnitTest
 {
@@ -53,22 +35,6 @@ struct ProcessorTests : juce::UnitTest
 
     void runTest() override
     {
-        beginTest ("silence in gives silence out");
-        {
-            DustLoopsProcessor p;
-            prepare (p);
-            juce::AudioBuffer<float> buffer (2, blockSize);
-            juce::MidiBuffer midi;
-            float peak = 0.0f;
-            for (int block = 0; block < 400; ++block)
-            {
-                buffer.clear();
-                p.processBlock (buffer, midi);
-                peak = std::max (peak, buffer.getMagnitude (0, blockSize));
-            }
-            expectEquals (peak, 0.0f);
-        }
-
         beginTest ("a note makes sound, stays finite and under the ceiling");
         {
             DustLoopsProcessor p;

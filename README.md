@@ -34,6 +34,30 @@ open "build/DustLoops_artefacts/Release/Standalone/Dust Loops.app"
 
 If Logic doesn't show a new build: quit Logic, run `./build.sh`, and reopen Logic. If it still doesn't appear, go to **Logic Pro → Settings → Plug-in Manager**, select the Dust Loops entries and click **Reset & Rescan Selection**.
 
+## How to play it
+The front of the plugin is a cassette deck. Hover over any control and the strip across the middle tells you what it does.
+
+1. **Play a chord.** Everything you play goes onto three tape loops (A, B and C) of different lengths, so the repeats drift against each other.
+2. **FEED** sets how long it lasts. Low: each repeat fades quickly. High: layers pile up into a drone.
+3. **FREEZE** (the yellow button) holds what's on the tape forever. Nothing new goes on and nothing fades. Play over the top of it.
+4. **TAPE SPEED** (the big knob) slows the tape down, speeds it up or runs it backwards, and the pitch follows. It clicks in at 1x, 0.5x and -1x. Double-click any knob to reset it.
+5. **TIME** stretches the loops in LOOP mode, or sets the echo time in ECHO mode. **MIX** sets dry sound against tape, and **VOLUME** sets the tape level.
+6. **Piano keys:**
+   - ● arms or disarms recording (the A/B/C lights)
+   - ▶ plays
+   - hold ◀◀ for reverse
+   - hold ▶▶ for double speed
+   - ■ brakes the tape to a stop
+   - ❚❚ is a quick stop and restart
+7. **A / B / C lights:** click one to arm or disarm that loop. **ERASE** wipes all three.
+8. **LOOP / ECHO switch:** tape loops that wear out with every pass, or a tape echo with three heads. **SYNC / FREE switch:** loop lengths in beats that follow Logic's tempo, or in seconds.
+9. **BACK** opens the back panel, which holds the less-used settings:
+   - per-loop length, level, pan, speed, mute and clear
+   - tape type, wow, flutter, hiss, saturation, age and dropouts
+   - inertia, brake time and master level
+
+The window can be resized from 75 % to 200 % by dragging its corner, and remembers its size.
+
 ## Using it in Logic
 
 ### Instrument
@@ -57,11 +81,14 @@ CMakeLists.txt      targets, plus the identity block at the top (name, codes, bu
 build.sh            build → test → install → sign → auval
 Source/Core/        Identity.h (product name constant), Params.{h,cpp} (every parameter ID)
 Source/DSP/         allocation-free DSP building blocks (Safety.h: NaN scrub, limiters)
+Source/Tape/        TapeMachine.h: the three loops / echo, wear, varispeed, transport
+Source/Gui/         the deck: parts (knobs, keys, cassette...), front/back panels
 Source/Synth/       synth engine
 Source/Plugin/      processor + editor (one class serves both plugins; DUST_LOOPS_FX switches the synth out)
 tests/              unit tests (run by build.sh, or: build/DustLoopsTests_artefacts/Release/DustLoopsTests)
 assets/             Dust Planet Records logo
-presets/            factory presets as JSON (from milestone 2)
+tools/              Snapshot.cpp renders the UI to PNG (cmake --build build --target DustSnapshot)
+presets/            factory presets as JSON (later)
 ```
 
 ## Renaming
