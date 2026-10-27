@@ -26,7 +26,7 @@ int main (int argc, char** argv)
     }
 
     std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditor());
-    editor->setSize (1000, 640);
+    editor->setSize (1000, 902);
     for (int i = 0; i < 20; ++i) // let timers run so meters and readouts settle
     {
         juce::MessageManager::getInstance()->runDispatchLoopUntil (20);

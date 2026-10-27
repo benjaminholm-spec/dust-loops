@@ -134,6 +134,8 @@ Path segmentPath (int seg, Rectangle<float> cell)
 } // namespace
 
 //==============================================================================
+void drawLed (Graphics& g, Point<float> centre, float radius, float brightness) { drawLedDome (g, centre, radius, brightness); }
+
 void drawDymoLabel (Graphics& g, Point<float> centre, const String& text, float height, int seed)
 {
     Random r (seed);
@@ -195,13 +197,16 @@ void Knob::resized()
 {
     const auto labelHeight = size == Size::big ? 24 : 20;
     auto b = getLocalBounds();
-    b.removeFromBottom (labelHeight + 4);
+    if (size != Size::tiny)
+        b.removeFromBottom (labelHeight + 4);
     const auto side = std::min (b.getWidth(), b.getHeight());
     slider.setBounds (b.withSizeKeepingCentre (side, side));
 }
 
 void Knob::paint (Graphics& g)
 {
+    if (size == Size::tiny)
+        return;
     const auto labelHeight = size == Size::big ? 22.0f : 18.0f;
     drawDymoLabel (g, { (float) getWidth() * 0.5f, (float) getHeight() - labelHeight * 0.5f - 1.0f }, label, labelHeight, seed);
 }
@@ -502,7 +507,7 @@ void drawSmallKey (Graphics& g, Rectangle<float> b, const String& label, bool li
 
     g.setFont (spaced (Art::silk (12.0f), 0.1f));
     g.setColour (Art::Colours::silk);
-    g.drawText (label.toUpperCase(), key.withTrimmedLeft (16.0f).withTrimmedRight (3.0f), Justification::centred, false);
+    g.drawText (label.toUpperCase(), key.withTrimmedLeft (14.0f).withTrimmedRight (1.0f), Justification::centred, false);
 }
 } // namespace
 

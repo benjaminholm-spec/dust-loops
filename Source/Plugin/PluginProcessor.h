@@ -5,6 +5,7 @@
 #include "DSP/Safety.h"
 #include "Synth/SineVoice.h"
 #include "Tape/TapeMachine.h"
+#include "Pedals/Pedals.h"
 
 // One processor class for both plugins. The FX build (DUST_LOOPS_FX=1) has no synth: its main input
 // feeds the tape. The instrument's input bus is a sidechain that Logic can route another track into.
@@ -47,8 +48,15 @@ public:
     // Tempo the tape is following (host tempo, or 120 when there is none).
     std::atomic<float> currentBpm { 120.0f };
 
-    // Not an automatable parameter: the pedalboard chain order, including the TAPE block.
+    // Not an automatable parameter: the pedalboard chain order, including the TAPE block. Saved with
+    // the plugin state. Message thread only; the audio thread reads a packed copy.
     static constexpr auto defaultPedalOrder = "dirt,warble,drift,tape,cloud,hall";
+    using PedalOrder = dust::PedalBoard::Order;
+    PedalOrder getPedalOrder() const noexcept;
+    void setPedalOrder (const PedalOrder&);
+    static juce::String orderToString (const PedalOrder&);
+    static PedalOrder orderFromString (const juce::String&);
+    float getDriftCutoff() const noexcept { return pedals.driftCutoff(); }
 
 private:
     static constexpr int numVoices = 8;
@@ -56,6 +64,7 @@ private:
 
     void timerCallback() override;
     void readTapeSettings();
+    void readPedalSettings();
     void handleKeys();
 
     juce::Synthesiser synth;
@@ -63,6 +72,10 @@ private:
     juce::AudioBuffer<float> inputScratch, tapeIn;
     dust::TapeMachine tape;
     dust::TapeSettings tapeSettings;
+    dust::PedalBoard pedals;
+    dust::PedalBoardSettings pedalSettings;
+    juce::AudioBuffer<float> chain, tapeReturn, loopInject; // chunk-sized work buffers
+    std::atomic<uint32_t> packedOrder { 0 };
     dust::OutputLimiter outputLimiter;
     juce::SmoothedValue<float> masterGain, inputGain, synthGain;
 
@@ -79,6 +92,16 @@ private:
         std::atomic<float> *keyRec, *keyPlay, *keyRew, *keyFfwd, *keyStop, *keyPause;
         std::array<std::atomic<float>*, 3> beats, seconds, level, pan, speedOffset, mute, rec, clear;
     } tp {};
+
+    struct PedalParams
+    {
+        std::array<std::atomic<float>*, 5> on, loop, loopAmt;
+        std::atomic<float> *dirtDrive, *dirtBlend, *dirtTone, *dirtMix;
+        std::atomic<float> *warbleRate, *warbleDepth, *warbleMode, *warbleMix;
+        std::atomic<float> *driftFreq, *driftReso, *driftMode, *driftLfoRate, *driftLfoDepth, *driftEnv;
+        std::atomic<float> *cloudPitch, *cloudSmear, *cloudDensity, *cloudMix;
+        std::atomic<float> *hallDecay, *hallTone, *hallMix, *hallFreeze;
+    } pp {};
 
     // Rising-edge detection for the momentary keys
     bool lastPlay = false, lastStop = false, lastPause = false, lastRec = false;

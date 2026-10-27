@@ -47,6 +47,24 @@ DustLoopsProcessor::DustLoopsProcessor()
         tp.rec[i] = get (ID::loop::rec[i]);       tp.clear[i] = get (ID::loop::clear[i]);
     }
 
+    using namespace ID::pedal;
+    for (size_t i = 0; i < 5; ++i)
+    {
+        pp.on[i] = get (id ((int) i, ID::pedal::on));
+        pp.loop[i] = get (id ((int) i, ID::pedal::loop));
+        pp.loopAmt[i] = get (id ((int) i, ID::pedal::loopAmt));
+    }
+    pp.dirtDrive = get (dirt::drive);       pp.dirtBlend = get (dirt::blend);     pp.dirtTone = get (dirt::tone);
+    pp.dirtMix = get (dirt::mix);           pp.warbleRate = get (warble::rate);   pp.warbleDepth = get (warble::depth);
+    pp.warbleMode = get (warble::mode);     pp.warbleMix = get (warble::mix);     pp.driftFreq = get (drift::freq);
+    pp.driftReso = get (drift::reso);       pp.driftMode = get (drift::mode);     pp.driftLfoRate = get (drift::lfoRate);
+    pp.driftLfoDepth = get (drift::lfoDepth); pp.driftEnv = get (drift::envAmt);  pp.cloudPitch = get (cloud::pitch);
+    pp.cloudSmear = get (cloud::smear);     pp.cloudDensity = get (cloud::density); pp.cloudMix = get (cloud::mix);
+    pp.hallDecay = get (hall::decay);       pp.hallTone = get (hall::tone);       pp.hallMix = get (hall::mix);
+    pp.hallFreeze = get (hall::freeze);
+
+    setPedalOrder (orderFromString (defaultPedalOrder));
+
     if constexpr (! dust::kIsFx)
     {
         synthLevelParam = get (ID::synth::level);
@@ -89,6 +107,11 @@ void DustLoopsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     inputScratch.setSize (2, maxBlock);
     tapeIn.setSize (2, maxBlock);
     tape.prepare (sampleRate);
+    pedals.prepare ((float) sampleRate, maxBlock);
+    chain.setSize (2, maxBlock);
+    tapeReturn.setSize (2, maxBlock);
+    loopInject.setSize (2, maxBlock);
+    loopInject.clear();
     outputLimiter.prepare ((float) sampleRate);
 
     const auto initGain = [sampleRate] (juce::SmoothedValue<float>& s, std::atomic<float>* p)
@@ -134,6 +157,77 @@ void DustLoopsProcessor::readTapeSettings()
         l.mute = on (tp.mute[i]);
         l.armed = on (tp.rec[i]);
     }
+}
+
+void DustLoopsProcessor::readPedalSettings()
+{
+    auto& s = pedalSettings;
+    for (size_t i = 0; i < 5; ++i)
+    {
+        s.on[i] = on (pp.on[i]);
+        s.inLoop[i] = on (pp.loop[i]);
+        s.loopAmount[i] = pp.loopAmt[i]->load();
+    }
+    s.dirt = { pp.dirtDrive->load(), pp.dirtBlend->load(), pp.dirtTone->load(), pp.dirtMix->load() };
+    s.warble = { pp.warbleRate->load(), pp.warbleDepth->load(), pp.warbleMix->load(), (int) pp.warbleMode->load() };
+    s.drift = { pp.driftFreq->load(), pp.driftReso->load(), pp.driftLfoRate->load(), pp.driftLfoDepth->load(),
+                pp.driftEnv->load(), (int) pp.driftMode->load() };
+    s.cloud = { (int) pp.cloudPitch->load(), pp.cloudSmear->load(), pp.cloudDensity->load(), pp.cloudMix->load() };
+    s.hall = { pp.hallDecay->load(), pp.hallTone->load(), pp.hallMix->load(), on (pp.hallFreeze) };
+}
+
+DustLoopsProcessor::PedalOrder DustLoopsProcessor::orderFromString (const juce::String& text)
+{
+    // Unknown or missing names fall back to the default order for whatever is left.
+    PedalOrder order {};
+    std::array<bool, 6> used {};
+    size_t n = 0;
+    const auto nameToSlot = [] (const juce::String& name)
+    {
+        if (name == "tape") return dust::PedalBoard::tapeSlot;
+        for (int i = 0; i < ID::pedal::count; ++i)
+            if (name == ID::pedal::names[i]) return i;
+        return -1;
+    };
+    for (auto& token : juce::StringArray::fromTokens (text, ",", ""))
+    {
+        const auto slot = nameToSlot (token.trim());
+        if (slot >= 0 && ! used[(size_t) slot] && n < order.size())
+        {
+            used[(size_t) slot] = true;
+            order[n++] = slot;
+        }
+    }
+    for (int slot : { 0, 1, 2, dust::PedalBoard::tapeSlot, 3, 4 })
+        if (! used[(size_t) slot] && n < order.size())
+            order[n++] = slot;
+    return order;
+}
+
+juce::String DustLoopsProcessor::orderToString (const PedalOrder& order)
+{
+    juce::StringArray names;
+    for (auto slot : order)
+        names.add (slot == dust::PedalBoard::tapeSlot ? juce::String ("tape") : juce::String (ID::pedal::names[slot]));
+    return names.joinIntoString (",");
+}
+
+DustLoopsProcessor::PedalOrder DustLoopsProcessor::getPedalOrder() const noexcept
+{
+    const auto packed = packedOrder.load();
+    PedalOrder order {};
+    for (size_t i = 0; i < order.size(); ++i)
+        order[i] = (int) ((packed >> (3 * i)) & 7u);
+    return order;
+}
+
+void DustLoopsProcessor::setPedalOrder (const PedalOrder& order)
+{
+    uint32_t packed = 0;
+    for (size_t i = 0; i < order.size(); ++i)
+        packed |= (uint32_t) order[i] << (3 * i);
+    packedOrder.store (packed);
+    apvts.state.setProperty (pedalOrderProp, orderToString (order), nullptr);
 }
 
 void DustLoopsProcessor::handleKeys()
@@ -228,20 +322,50 @@ void DustLoopsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     for (int ch = 0; ch < 2; ++ch)
         tapeIn.addFrom (ch, 0, inputScratch, ch, 0, numSamples);
 
-    // Tape: writes dry + wet into the output buffer.
+    // The chain, in board order: pedals before TAPE, the tape (dry + wet), pedals after it. The
+    // in-loop pedal copies process what the tape plays and hand it back one chunk later.
+    readPedalSettings();
+    const auto order = getPedalOrder();
     buffer.clear();
-    auto* left = buffer.getWritePointer (0);
-    auto* right = numOut > 1 ? buffer.getWritePointer (1) : inputScratch.getWritePointer (1); // mono out: scratch R
-    tape.process (tapeIn.getReadPointer (0), tapeIn.getReadPointer (1), left, right, numSamples, tapeSettings);
+    const auto chunkSize = chain.getNumSamples();
+    for (int start = 0; start < numSamples; start += chunkSize)
+    {
+        const auto n = std::min (chunkSize, numSamples - start);
+        auto* l = chain.getWritePointer (0);
+        auto* r = chain.getWritePointer (1);
+        std::copy (tapeIn.getReadPointer (0, start), tapeIn.getReadPointer (0, start) + n, l);
+        std::copy (tapeIn.getReadPointer (1, start), tapeIn.getReadPointer (1, start) + n, r);
 
-    if (numOut == 1)
-        for (int i = 0; i < numSamples; ++i)
-            left[i] = 0.5f * (left[i] + right[i]);
+        for (auto slot : order)
+        {
+            if (slot == dust::PedalBoard::tapeSlot)
+                tape.process (l, r, l, r, n, tapeSettings, loopInject.getReadPointer (0), loopInject.getReadPointer (1),
+                              tapeReturn.getWritePointer (0), tapeReturn.getWritePointer (1));
+            else
+                pedals.processMain (slot, l, r, n, pedalSettings);
+        }
+        pedals.processLoop (order, tapeReturn.getReadPointer (0), tapeReturn.getReadPointer (1),
+                            loopInject.getWritePointer (0), loopInject.getWritePointer (1), n, pedalSettings);
+        if (n < chunkSize)
+            loopInject.clear (n, chunkSize - n);
+
+        if (numOut > 1)
+        {
+            buffer.copyFrom (0, start, l, n);
+            buffer.copyFrom (1, start, r, n);
+        }
+        else
+            for (int i = 0; i < n; ++i)
+                buffer.setSample (0, start + i, 0.5f * (l[i] + r[i]));
+    }
+
+    auto* left = buffer.getWritePointer (0);
+    auto* right = numOut > 1 ? buffer.getWritePointer (1) : nullptr;
 
     masterGain.setTargetValue (dbToGain (masterParam));
     masterGain.applyGain (buffer, numSamples);
 
-    outputLimiter.process (left, numOut > 1 ? right : nullptr, numSamples);
+    outputLimiter.process (left, right, numSamples);
 
     for (int ch = 0; ch < 2; ++ch)
         outputPeak[ch].store (buffer.getMagnitude (std::min (ch, numOut - 1), 0, numSamples));
@@ -264,9 +388,9 @@ void DustLoopsProcessor::setStateInformation (const void* data, int sizeInBytes)
         if (xml->hasTagName (stateType))
         {
             auto state = juce::ValueTree::fromXml (*xml);
-            if (! state.hasProperty (pedalOrderProp))
-                state.setProperty (pedalOrderProp, defaultPedalOrder, nullptr);
+            const auto order = orderFromString (state.getProperty (pedalOrderProp, defaultPedalOrder).toString());
             apvts.replaceState (state);
+            setPedalOrder (order);
         }
 }
 

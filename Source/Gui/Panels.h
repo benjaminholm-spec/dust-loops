@@ -3,16 +3,17 @@
 #include "DeckParts.h"
 #include "SegmentDisplay.h"
 #include "VuMeter.h"
+#include "PedalBoardView.h"
 
 class DustLoopsProcessor;
 
-// The whole plugin face at its logical size (1000 x 640). The editor scales it for 75-200 %.
+// The whole plugin face at its logical size (1000 x 902): deck on top, pedalboard below. The editor scales it for 75-200 %.
 //   Top strip : logo, preset display, SPEED and TEMPO readouts, INPUT/SYNTH levels, BACK.
 //   Front     : the deck - knobs on the grille, FREEZE, VU, loop LEDs, cassette, piano keys.
 //   Back      : everything else (loop lengths, tape wear, output), out of the way.
 namespace deck
 {
-constexpr int logicalWidth = 1000, logicalHeight = 640, topHeight = 70;
+constexpr int logicalWidth = 1000, deckHeight = 640, logicalHeight = deckHeight + PedalBoardView::height, topHeight = 70;
 
 // Caches a painted background at the screen's physical resolution.
 class CachedBackground
@@ -99,6 +100,7 @@ private:
     ActionButton backButton { "Back", "BACK PANEL: loop lengths, tape wear and output. Click again to return to the deck." };
     FrontPanel front;
     BackPanel back;
+    PedalBoardView board;
     CachedBackground background;
     juce::String defaultHint;
 };

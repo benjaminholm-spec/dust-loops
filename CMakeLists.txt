@@ -31,7 +31,8 @@ set(DL_SOURCES
     Source/Gui/SegmentDisplay.cpp
     Source/Gui/VuMeter.cpp
     Source/Gui/DeckParts.cpp
-    Source/Gui/Panels.cpp)
+    Source/Gui/Panels.cpp
+    Source/Gui/PedalBoardView.cpp)
 
 set(DL_COMMON_DEFS
     DUST_PRODUCT_NAME="${DL_PRODUCT_NAME}"
@@ -100,7 +101,7 @@ dust_add_plugin(DustLoopsFX
 
 # ---- Unit tests: the real processor, driven offline ---------------------------------------------
 juce_add_console_app(DustLoopsTests PRODUCT_NAME "DustLoopsTests")
-target_sources(DustLoopsTests PRIVATE ${DL_SOURCES} tests/TestMain.cpp tests/TapeTests.cpp)
+target_sources(DustLoopsTests PRIVATE ${DL_SOURCES} tests/TestMain.cpp tests/TapeTests.cpp tests/PedalTests.cpp)
 target_include_directories(DustLoopsTests PRIVATE Source)
 target_compile_definitions(DustLoopsTests PRIVATE ${DL_COMMON_DEFS}
     JucePlugin_Name="${DL_PRODUCT_NAME}" DUST_LOOPS_FX=0 JUCE_STANDALONE_APPLICATION=1)

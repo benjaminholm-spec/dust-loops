@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.3.0 — Pedalboard (2026-10-27)
+Five stompboxes under the deck, joined by patch cables:
+- **DIRT**: tape drive, then fuzz, then bitcrush, all on one BLEND knob. Also TONE and MIX.
+- **WARBLE**: BBD chorus or vibrato, from gentle up to seasick. RATE, DEPTH, MIX and a VIB switch.
+- **DRIFT FILTER**: resonant lowpass or bandpass with a very slow sweep (one cycle can take up to 2 minutes) and an envelope follower. FREQ, RESO, DRIFT, SWEEP, plus a BP switch and an ENV trim.
+- **CLOUD**: granular pitch smear (octave down, fifth up, octave up, or up and down together) with regeneration, so the sound swells. PITCH, SMEAR, DENSITY and MIX.
+- **HALL**: big, dark 8-line FDN reverb with up to 60 s of decay and a lossless FREEZE. DECAY, TONE, MIX and FRZ.
+
+Every pedal has:
+- a footswitch, which fades in and out instead of clicking
+- an on LED
+- a LOOP switch with a LOOP AMOUNT trim
+
+LOOP runs a second copy of the pedal inside the tape's feedback path. The tape's return passes through all the in-loop pedals in board order, and only what they add is re-recorded, scaled by FEED, so the effect builds up on every pass. FREEZE bypasses it.
+
+Drag a pedal (or the TAPE block) by its body to reorder the chain. Pedals left of TAPE go onto the tape; pedals right of it colour what comes off. The cables follow. The order is saved with the project. By default only HALL is on, in LOOP at 15 %.
+
+Other changes:
+- The window is now 1000 × 902 at 100 %, and it never opens taller than the screen.
+- The chain is processed in fixed-size chunks, so oversized host blocks never allocate.
+
+New tests:
+- each pedal stays finite and bounded on loud noise
+- HALL freeze holds its tail
+- everything maxed inside the tape loop for 60 s keeps the tape below 1.0
+- bypassed pedals plus a dry mix are bit-transparent
+- pedal order survives text and saved state, and bad input falls back safely
+
 ## 0.2.0 — The deck: simple front panel + working tape (2026-10-27)
 After feedback that the generic parameter list was impossible to use, the plan was reordered. The real front panel and the tape engine were built together, so every control on screen works.
 

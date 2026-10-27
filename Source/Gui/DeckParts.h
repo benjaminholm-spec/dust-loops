@@ -15,6 +15,9 @@ inline void setHint (juce::Component& c, const juce::String& hint) { c.getProper
 // Embossed white letters on black label-maker tape, like the labels stuck on a modded deck.
 void drawDymoLabel (juce::Graphics&, juce::Point<float> centre, const juce::String& text, float height, int seed);
 
+// Red LED in a black bezel; brightness 0 (dark) .. 1 (fully lit, with a halo).
+void drawLed (juce::Graphics&, juce::Point<float> centre, float radius, float brightness);
+
 //==============================================================================
 class DetentSlider : public juce::Slider
 {
@@ -34,7 +37,7 @@ public:
 class Knob : public juce::Component
 {
 public:
-    enum class Size { small, medium, big };
+    enum class Size { tiny, small, medium, big }; // tiny: no label (trim pots)
 
     Knob (APVTS&, const juce::String& paramId, const juce::String& label, const juce::String& hint, Size, int seed);
 

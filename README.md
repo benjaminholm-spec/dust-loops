@@ -56,6 +56,10 @@ The front of the plugin is a cassette deck. Hover over any control and the strip
    - tape type, wow, flutter, hiss, saturation, age and dropouts
    - inertia, brake time and master level
 
+10. **Pedals** (under the deck). Stomp the footswitch to turn a pedal on.
+    - **LOOP** puts a copy of the pedal inside the tape loop, so its effect builds up on every pass. That's where the drones come from. The little trim next to it sets how much.
+    - Drag a pedal by its body to move it. Pedals left of the **TAPE DECK** block go onto the tape; pedals right of it colour what comes off it.
+
 The window can be resized from 75 % to 200 % by dragging its corner, and remembers its size.
 
 ## Using it in Logic
@@ -82,7 +86,8 @@ build.sh            build → test → install → sign → auval
 Source/Core/        Identity.h (product name constant), Params.{h,cpp} (every parameter ID)
 Source/DSP/         allocation-free DSP building blocks (Safety.h: NaN scrub, limiters)
 Source/Tape/        TapeMachine.h: the three loops / echo, wear, varispeed, transport
-Source/Gui/         the deck: parts (knobs, keys, cassette...), front/back panels
+Source/Pedals/      Pedals.h: Dirt, Warble, DriftFilter, Cloud, Hall + the PedalBoard (main + in-loop copies)
+Source/Gui/         the deck: parts (knobs, keys, cassette...), front/back panels, pedalboard
 Source/Synth/       synth engine
 Source/Plugin/      processor + editor (one class serves both plugins; DUST_LOOPS_FX switches the synth out)
 tests/              unit tests (run by build.sh, or: build/DustLoopsTests_artefacts/Release/DustLoopsTests)

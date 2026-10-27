@@ -379,7 +379,8 @@ void BackPanel::paint (Graphics& g)
 DeckContent::DeckContent (DustLoopsProcessor& p)
     : processor (p),
       front (p, [this] (Knob& k) { showHint (k.valueText()); }),
-      back (p, [this] (Knob& k) { showHint (k.valueText()); })
+      back (p, [this] (Knob& k) { showHint (k.valueText()); }),
+      board (p, [this] (Knob& k) { showHint (k.valueText()); })
 {
     defaultHint = defaultHintText;
     const auto onTurn = [this] (Knob& k) { showHint (k.valueText()); };
@@ -409,6 +410,7 @@ DeckContent::DeckContent (DustLoopsProcessor& p)
     addAndMakeVisible (backButton);
     addAndMakeVisible (front);
     addChildComponent (back);
+    addAndMakeVisible (board);
     addAndMakeVisible (hintStrip);
     hintStrip.setText (defaultHint);
 
@@ -436,7 +438,8 @@ void DeckContent::resized()
         synthKnob->setBounds (846, 2, 64, 68);
     backButton.setBounds (918, 22, 66, 28);
 
-    front.setBounds (0, topHeight, logicalWidth, logicalHeight - topHeight);
+    front.setBounds (0, topHeight, logicalWidth, deckHeight - topHeight);
+    board.setBounds (0, deckHeight, logicalWidth, PedalBoardView::height);
     back.setBounds (front.getBounds());
     hintStrip.setBounds (20, topHeight + 292, 960, 30);
 }

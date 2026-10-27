@@ -13,7 +13,10 @@ DustLoopsEditor::DustLoopsEditor (DustLoopsProcessor& p)
     setLookAndFeel (&lookAndFeel);
     addAndMakeVisible (content);
 
-    const auto scale = juce::jlimit (minScale, maxScale, (double) dust::settings::get (uiScaleKey, 1.0));
+    auto scale = juce::jlimit (minScale, maxScale, (double) dust::settings::get (uiScaleKey, 1.0));
+    // Never open taller than the screen
+    if (auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+        scale = juce::jlimit (minScale, scale, (display->userBounds.getHeight() - 120) / (double) deck::logicalHeight);
     setResizable (true, true);
     setResizeLimits ((int) (deck::logicalWidth * minScale), (int) (deck::logicalHeight * minScale),
                      (int) (deck::logicalWidth * maxScale), (int) (deck::logicalHeight * maxScale));

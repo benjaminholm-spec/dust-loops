@@ -108,7 +108,11 @@ public:
         for (auto& l : loops) l.position = 0.0;
     }
 
-    void process (const float* inL, const float* inR, float* outL, float* outR, int numSamples, const TapeSettings& s) noexcept
+    // injectL/R (optional): extra signal re-recorded with the old tape on every pass (the pedals in the
+    // loop), scaled by FEED. returnL/R (optional): receives what the heads play, averaged, before levels.
+    void process (const float* inL, const float* inR, float* outL, float* outR, int numSamples, const TapeSettings& s,
+                  const float* injectL = nullptr, const float* injectR = nullptr,
+                  float* returnL = nullptr, float* returnR = nullptr) noexcept
     {
         const auto sr = (float) sampleRate;
         updateLengths (s);
@@ -165,11 +169,14 @@ public:
             const auto inFL = inputFilter[0].process (dryL).low;
             const auto inFR = inputFilter[1].process (dryR).low;
 
-            float wetL = 0.0f, wetR = 0.0f;
+            const auto injL = injectL != nullptr ? injectL[n] * feed : 0.0f;
+            const auto injR = injectR != nullptr ? injectR[n] * feed : 0.0f;
+            float wetL = 0.0f, wetR = 0.0f, retL = 0.0f, retR = 0.0f;
             if (s.mode == TapeSettings::loop)
-                processLoopsSample (s, wear, feed, v, motion, inFL, inFR, wetL, wetR, blockPeak);
+                processLoopsSample (s, wear, feed, v, motion, inFL, inFR, injL, injR, wetL, wetR, retL, retR, blockPeak);
             else
-                processEchoSample (s, wear, feed, v, motion, inFL, inFR, wetL, wetR);
+                processEchoSample (s, wear, feed, v, motion, inFL, inFR, injL, injR, wetL, wetR, retL, retR);
+            if (returnL != nullptr) { returnL[n] = retL; returnR[n] = retR; }
 
             prevIn[0] = inFL; prevIn[1] = inFR;
 
@@ -348,7 +355,8 @@ private:
     }
 
     void processLoopsSample (const TapeSettings& s, const WearCoeffs& wear, float feed, double v, float motion,
-                             float inL, float inR, float& wetL, float& wetR, float* peaks) noexcept
+                             float inL, float inR, float injL, float injR, float& wetL, float& wetR,
+                             float& retL, float& retR, float* peaks) noexcept
     {
         for (size_t i = 0; i < loops.size(); ++i)
         {
@@ -376,7 +384,8 @@ private:
                     const auto frac = (float) j / (float) steps;
                     auto cl = l.data[cell], cr = l.data[cell + 1];
                     wearCell (l.wear, cl, cr, wear);
-                    cl *= feed; cr *= feed;
+                    cl = cl * feed + injL;
+                    cr = cr * feed + injR;
                     if (ls.armed)
                     {
                         cl += prevIn[0] + frac * (inL - prevIn[0]);
@@ -394,6 +403,8 @@ private:
 
             if (! ls.mute)
                 addPanned (pl * motion, pr * motion, ls.gain, ls.pan, wetL, wetR);
+            retL += pl * motion * (1.0f / 3.0f);
+            retR += pr * motion * (1.0f / 3.0f);
             peaks[i] = std::max (peaks[i], std::max (std::abs (pl), std::abs (pr)) * motion);
         }
     }
@@ -401,7 +412,8 @@ private:
     // ECHO: one tape loop, a record head and three playback heads behind it (A, B and C), spaced by the
     // ratio of their loop lengths: a multi-head tape echo.
     void processEchoSample (const TapeSettings& s, const WearCoeffs& wear, float feed, double v, float motion,
-                            float inL, float inR, float& wetL, float& wetR) noexcept
+                            float inL, float inR, float injL, float injR, float& wetL, float& wetR,
+                            float& retL, float& retR) noexcept
     {
         const auto lengthOf = [&s] (size_t i) { return s.sync ? s.loops[i].beats : s.loops[i].seconds; };
         const auto longest = std::max ({ lengthOf (0), lengthOf (1), lengthOf (2), 0.01f });
@@ -425,12 +437,13 @@ private:
                 addPanned (hl, hr, ls.gain, ls.pan, wetL, wetR);
         }
 
+        fbL *= (1.0f / 3.0f); fbR *= (1.0f / 3.0f);
+        retL = fbL; retR = fbR;
         if (! s.freeze)
         {
-            fbL *= (1.0f / 3.0f); fbR *= (1.0f / 3.0f);
             wearCell (echoWear, fbL, fbR, wear);
-            auto wl = inL + fbL * feed * 1.15f; // a little extra so FEED at max can self-oscillate into the limiter
-            auto wr = inR + fbR * feed * 1.15f;
+            auto wl = inL + fbL * feed * 1.15f + injL; // a little extra so FEED at max can self-oscillate into the limiter
+            auto wr = inR + fbR * feed * 1.15f + injR;
             echoLimiter.process (wl, wr);
 
             const auto k0 = (int) std::floor (w0), k1 = (int) std::floor (w1);
