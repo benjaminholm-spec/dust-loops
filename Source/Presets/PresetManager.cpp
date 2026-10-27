@@ -1,10 +1,11 @@
 #include "PresetManager.h"
 #include "Core/GlobalSettings.h"
+#include "Core/Identity.h"
 #include "PresetData.h"
 
 namespace
 {
-const juce::Identifier favouritesKey { "favourites" };
+const juce::Identifier favouritesKey { "favourites" }, loadDeckKey { "presetsLoadTapeAndPedals" };
 const juce::Identifier presetKeyProp { "presetKey" }, presetModifiedProp { "presetModified" };
 
 int bankRank (const juce::String& bank)
@@ -57,14 +58,28 @@ const juce::StringArray& PresetManager::factoryBanks()
 
 bool PresetManager::isStored (const juce::String& id)
 {
-    return ! (id.startsWith ("xport.") || id.endsWith (".clear") || id == "tape.freeze" || id == "pedal.hall.freeze"
-              || id == "global.inputGain");
+    return ! (id.startsWith ("xport.") || id.endsWith (".clear") || id.endsWith (".rec") || id == "tape.freeze"
+              || id == "pedal.hall.freeze" || id == "global.inputGain");
+}
+
+bool PresetManager::isSound (const juce::String& id)
+{
+    return id.startsWith ("synth.") || id.startsWith ("atmos.");
+}
+
+void PresetManager::setLoadsDeck (bool shouldLoad, bool remember)
+{
+    deckToo.store (dust::kIsFx || shouldLoad); // the FX has no synth: its presets are all deck
+    if (remember && ! dust::kIsFx)
+        dust::settings::set (loadDeckKey, shouldLoad);
+    notify();
 }
 
 PresetManager::PresetManager (juce::AudioProcessorValueTreeState& state, std::function<juce::String()> getOrderFn,
                               std::function<void (const juce::String&)> setOrderFn)
     : apvts (state), getOrder (std::move (getOrderFn)), setOrder (std::move (setOrderFn))
 {
+    deckToo.store (dust::kIsFx || (bool) dust::settings::get (loadDeckKey, false));
     loadFactory();
     rescanUser();
     if (auto* arr = dust::settings::get (favouritesKey, {}).getArray())
@@ -157,6 +172,8 @@ void PresetManager::apply (const juce::var& data)
         auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (p);
         if (ranged == nullptr || ! isStored (ranged->getParameterID()))
             continue;
+        if (! deckToo.load() && ! isSound (ranged->getParameterID()))
+            continue;
         const auto stored = params[juce::Identifier (ranged->getParameterID())];
         const auto value = stored.isVoid() ? std::optional<float> (ranged->getDefaultValue()) : normalisedFrom (*ranged, stored);
         if (value && std::abs (*value - ranged->getValue()) > 1.0e-6f)
@@ -166,7 +183,7 @@ void PresetManager::apply (const juce::var& data)
             ranged->endChangeGesture();
         }
     }
-    if (setOrder)
+    if (setOrder && deckToo.load())
         setOrder (data["pedalOrder"].toString()); // empty = default order
     applying = false;
 }
@@ -300,8 +317,9 @@ void PresetManager::readState (const juce::ValueTree& state)
     notify();
 }
 
-void PresetManager::parameterChanged (const juce::String&, float)
+void PresetManager::parameterChanged (const juce::String& id, float)
 {
-    if (! applying)
+    // Only what a load would restore counts as editing the preset.
+    if (! applying && (deckToo.load() || isSound (id)))
         modified.store (true);
 }

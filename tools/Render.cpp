@@ -1,4 +1,5 @@
 // Renders every factory preset playing a held chord (10 s) and its tail (5 s), and prints the levels.
+// Presets load sound-only, as in the plugin by default, so the tape and pedals stay at their defaults.
 //   DustRender                          print the report
 //   DustRender --wav <dir>              also write each render as a WAV file
 //   DustRender --trims <file.json>      update loudness trims (dB per preset) toward the target level;
@@ -20,6 +21,7 @@ int main (int argc, char** argv)
     DustLoopsProcessor processor;
     processor.setPlayConfigDetails (2, 2, sr, block);
     auto& pm = *processor.presets;
+    pm.setLoadsDeck (false, false); // measure the sounds as they normally load: onto the default tape and pedals
 
     juce::var trims (new juce::DynamicObject());
     if (trimsPath.isNotEmpty())

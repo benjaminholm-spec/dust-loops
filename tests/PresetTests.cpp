@@ -22,6 +22,33 @@ public:
         auto& pm = *p.presets;
         const auto& list = pm.presets();
 
+        beginTest ("by default a preset changes only the sound: never the tape, the pedals or REC");
+        {
+            pm.setLoadsDeck (false, false);
+            setParam (p, ID::tape::feed, 0.123f);
+            setParam (p, ID::loop::rec[0], 0.0f);
+            setParam (p, ID::loop::rec[1], 1.0f);
+            setParam (p, ID::pedal::id (0, ID::pedal::on), 1.0f);
+            p.setPedalOrder (DustLoopsProcessor::orderFromString ("hall,tape,cloud,drift,warble,dirt"));
+            for (int i = 0; i < pm.numFactory(); i += 7)
+            {
+                pm.load (i);
+                expectWithinAbsoluteError (realValue (p, ID::tape::feed), 0.123f, 1.0e-3f);
+                expectEquals (realValue (p, ID::loop::rec[0]), 0.0f, "a preset armed a loop");
+                expectEquals (realValue (p, ID::loop::rec[1]), 1.0f);
+                expectEquals (realValue (p, ID::pedal::id (0, ID::pedal::on)), 1.0f);
+                expectEquals (DustLoopsProcessor::orderToString (p.getPedalOrder()), juce::String ("hall,tape,cloud,drift,warble,dirt"));
+            }
+            const auto& data = list[14].data["params"];
+            pm.load (14);
+            expectWithinAbsoluteError (realValue (p, ID::synth::cutoff), (float) (double) data[ID::synth::cutoff], 0.5f);
+            setParam (p, ID::tape::feed, 0.5f);
+            expect (! pm.isModified(), "tape changes don't edit a sound-only preset");
+            setParam (p, ID::synth::resonance, 0.9f);
+            expect (pm.isModified());
+            pm.setLoadsDeck (true, false); // the rest of the tests load everything
+        }
+
         beginTest ("at least 60 factory presets in the four banks");
         {
             expectGreaterOrEqual (pm.numFactory(), 60);
@@ -71,6 +98,7 @@ public:
         {
             setParam (p, ID::synth::glide, 1.7f);
             setParam (p, ID::tape::freeze, 1.0f);
+            setParam (p, ID::loop::rec[2], 0.0f);
             const auto index = 1;
             pm.load (index);
             const auto& data = list[(size_t) index].data["params"];
@@ -78,6 +106,8 @@ public:
             auto* glide = p.apvts.getParameter (ID::synth::glide);
             expectWithinAbsoluteError (glide->getValue(), glide->getDefaultValue(), 1.0e-5f);
             expectEquals (realValue (p, ID::tape::freeze), 1.0f, "FREEZE must not be touched by presets");
+            expectEquals (realValue (p, ID::loop::rec[2]), 0.0f, "REC must not be touched by presets");
+            setParam (p, ID::loop::rec[2], 1.0f);
             expect (! pm.isModified());
             expectEquals (pm.currentIndex(), index);
             setParam (p, ID::tape::freeze, 0.0f);

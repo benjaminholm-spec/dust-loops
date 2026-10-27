@@ -1,6 +1,7 @@
 #include "PresetBrowser.h"
 #include "Art.h"
 #include "Plugin/PluginProcessor.h"
+#include "Core/Identity.h"
 
 namespace deck
 {
@@ -90,6 +91,17 @@ PresetBrowser::PresetBrowser (DustLoopsProcessor& p) : presets (*p.presets)
     cancelButton.onPress = [this] { finishSaveAs (false); };
     for (auto* b : { &saveButton, &saveAsButton, &deleteButton, &folderButton, &closeButton })
         addAndMakeVisible (*b);
+    deckButton.isLit = [this] { return presets.loadsDeck(); };
+    deckButton.onPress = [this]
+    {
+        presets.setLoadsDeck (! presets.loadsDeck());
+        deckButton.repaint();
+        if (onHint)
+            onHint (presets.loadsDeck() ? "TAPE + PEDALS on: presets now also set the tape and pedals (never REC)."
+                                        : "TAPE + PEDALS off: presets only change the synth sound. The tape is yours.");
+    };
+    if constexpr (! dust::kIsFx)
+        addAndMakeVisible (deckButton);
     addChildComponent (okButton);
     addChildComponent (cancelButton);
 
@@ -315,6 +327,7 @@ void PresetBrowser::resized()
 {
     for (size_t i = 0; i < bankButtons.size(); ++i)
         bankButtons[i]->setBounds (16, 56 + (int) i * 36, 180, 28);
+    deckButton.setBounds (16, 492, 180, 28);
     search.setBounds (212, 12, 380, 30);
     nameEditor.setBounds (search.getBounds());
     saveButton.setBounds (604, 13, 70, 28);
@@ -336,6 +349,12 @@ void PresetBrowser::paint (Graphics& g)
         gi.addTransform (AffineTransform::scale (scale));
         Art::drawPanelWear (gi, getLocalBounds().toFloat(), 0xb41);
         drawDymoLabel (gi, { 106.0f, 26.0f }, "Presets", 20.0f, 91);
+        if constexpr (! dust::kIsFx)
+        {
+            gi.setFont (Art::silk (11.0f));
+            gi.setColour (Art::Colours::silkDim);
+            gi.drawText ("PRESETS ALSO LOAD:", Rectangle<float> (16.0f, 470.0f, 180.0f, 16.0f), Justification::centred, false);
+        }
         Art::drawRecess (gi, listArea.toFloat(), 4.0f);
     });
 }

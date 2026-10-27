@@ -238,21 +238,25 @@ private:
 };
 
 //==============================================================================
-// The cassette in its window. Reels turn at the real tape speed (backwards in reverse, still in FREEZE);
-// the tape packs grow and shrink as loop A goes round.
+// A clear loop cassette in its window: an endless loop of tape runs round three guide rollers in a
+// rounded triangle, past the head at the bottom. A splice mark goes round once per pass of loop A;
+// everything moves at the real tape speed (backwards in reverse, still in FREEZE).
 class CassetteView : public juce::Component, private juce::Timer
 {
 public:
     CassetteView (const dust::TapeMachine&, std::atomic<float>* freezeParam);
     void paint (juce::Graphics&) override;
+    void resized() override;
 
 private:
     void timerCallback() override;
-    void drawReel (juce::Graphics&, juce::Point<float> centre, float hubRadius, float packRadius, float angle) const;
 
     const dust::TapeMachine& tape;
     std::atomic<float>* freeze;
-    float leftAngle = 0.0f, rightAngle = 0.0f, phase = 0.0f;
+    juce::Path loopPath;                      // the tape loop, clockwise from the top roller
+    std::array<juce::Point<float>, 3> rollers; // top, bottom right, bottom left
+    float rollerRadius = 8.0f, loopLength = 1.0f;
+    float phase = 0.0f, travel = 0.0f;
     double lastTime = 0.0;
 };
 } // namespace deck

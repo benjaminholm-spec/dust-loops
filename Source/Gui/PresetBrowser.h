@@ -54,7 +54,10 @@ private:
                  folderButton { "Folder", "FOLDER: opens your user preset folder in Finder." },
                  closeButton { "Close", "CLOSE: back to the deck. (Clicking the preset display does this too.)" },
                  okButton { "Save", "SAVE: store it under the name you typed." },
-                 cancelButton { "Cancel", "CANCEL: don't save." };
+                 cancelButton { "Cancel", "CANCEL: don't save." },
+                 deckButton { "Tape + Pedals",
+                              "TAPE + PEDALS: off (normal) = presets only change the synth sound; the tape, loops and pedals stay as they are, "
+                              "so you can layer different sounds on one tape. Lit = presets also set the tape and pedals. REC is never changed." };
     bool syncingSelection = false, savingAs = false;
     double deleteArmedAt = 0.0;
     CachedBackground background;

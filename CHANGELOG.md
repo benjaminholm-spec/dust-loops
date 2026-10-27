@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 — Presets leave the tape alone; clear loop cassette (2026-10-27)
+- **Presets now change only the synth sound** (`synth.*` and `atmos.*`). The tape settings, loops, pedals and pedal order stay as they are, so you can layer different sounds on one tape.
+- **Fixed:** loading a preset could re-arm the loops (REC isn't stored in presets, so it fell back to its default, which is armed). REC arms are now never stored or changed by presets.
+- A **TAPE + PEDALS** switch in the browser (off by default, remembered globally) makes presets set the tape and pedals too. The FX version always works this way.
+- The `*` modified marker only tracks what a load would restore.
+- Preset loudness trims now go only into `synth.level`, measured sound-only.
+- **The cassette is now a clear loop cassette with no label.** An endless loop of tape runs round three guide rollers in a rounded triangle, past the head at the bottom. A silver splice mark goes round once per pass of loop A. The texture and rollers move at the real tape speed: backwards in reverse, still in FREEZE.
+
 ## 0.4.0 — Synth and presets (2026-10-27)
 The plain sine wave is gone. The real synth has three models:
 - **DCO-Poly** (Juno-style): saw, pulse with PWM, sub and noise from one steady oscillator, plus the BBD chorus (I, II, I+II).

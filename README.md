@@ -43,7 +43,8 @@ The plugin has a synth strip at the top, a cassette deck in the middle and a ped
 - one click loads a preset so you can audition it while you play, and a double-click loads it and closes the browser
 - the star marks a favourite
 - **SAVE** / **SAVE AS** store your own presets in `~/Music/Dust Loops/Presets` (the User bank), and **FOLDER** opens that folder
-- a `*` after the name means you've changed something since loading it
+- a `*` after the name means you've changed the sound since loading it
+- **Presets only change the synth sound.** The tape, the loops, REC and the pedals stay exactly as they are, so you can play one sound onto the tape, switch presets, and layer another on top. Nothing records unless you've armed it. If you want a preset's own tape and pedal settings too, light **TAPE + PEDALS** in the browser (it's remembered). Even then REC is never changed. In the FX version presets always set the tape and pedals, because there's no synth.
 
 Logic's own preset menu (top of the plugin window) also lists the factory presets.
 
@@ -125,9 +126,9 @@ A preset is a JSON file:
   "pedalOrder": "dirt,warble,drift,tape,cloud,hall",
   "params": { "synth.model": "DCO-Poly", "synth.cutoff": 1500, "pedal.hall.on": true } }
 ```
-Values are in real units (Hz, seconds, dB), and choices are given by name. Anything left out loads at its default. Transport keys, CLEAR, FREEZE and INPUT are never stored, so loading a preset never stops or wipes the tape. To change a factory preset, edit its file in `presets/` and rebuild. Your own presets in `~/Music/Dust Loops/Presets` can be edited the same way.
+Values are in real units (Hz, seconds, dB), and choices are given by name. Anything left out loads at its default. Transport keys, REC arms, CLEAR, FREEZE and INPUT are never stored, so loading a preset never arms, stops or wipes the tape. Normally only the `synth.*` and `atmos.*` values are loaded; the rest are used only with TAPE + PEDALS on. To change a factory preset, edit its file in `presets/` and rebuild. Your own presets in `~/Music/Dust Loops/Presets` can be edited the same way.
 
-Loudness: `DustRender --trims tools/preset_trims.json` measures each preset and updates the trims. `python3 tools/make_presets.py` then rewrites the JSON with the trims applied, targeting about -18 dBFS.
+Loudness: `DustRender --trims tools/preset_trims.json` measures each preset and updates the trims. `python3 tools/make_presets.py` then rewrites the JSON with the trims applied to `synth.level`, targeting about -18 dBFS (measured sound-only, on the default tape and pedals).
 
 ## Renaming
 Change `DL_PRODUCT_NAME` (and the codes and bundle ID, if you like) at the top of `CMakeLists.txt`, then delete `build/` and run `./build.sh`. Saved projects keep working, because the internal state ID doesn't depend on the name. If you change the codes, though, Logic will see it as a new plugin.

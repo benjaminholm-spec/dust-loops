@@ -5,7 +5,11 @@
 // Factory presets (JSON files in presets/<Bank>/, built into the plugin) and user presets
 // (~/Music/<product>/Presets/*.json). A preset stores parameters in real units, choices by name, and
 // the pedalboard order. Anything a preset leaves out goes back to its default, so presets always sound
-// the same. Transport keys, CLEAR, FREEZE and the input level are never stored or changed.
+// the same. Transport keys, REC arms, CLEAR, FREEZE and the input level are never stored or changed.
+//
+// By default loading a preset only changes the *sound* (synth.* and atmos.*): the tape, the loops and
+// the pedals are left alone, so different sounds can be layered on one tape. With "load deck" on
+// (always in the FX), presets set the tape and pedals too.
 // Message thread only, apart from the modified flag.
 class PresetManager : private juce::AudioProcessorValueTreeState::Listener
 {
@@ -57,6 +61,10 @@ public:
     std::function<void()> onChange; // the list, the current preset or its modified state changed
 
     static bool isStored (const juce::String& paramId);
+    static bool isSound (const juce::String& paramId);
+
+    bool loadsDeck() const noexcept { return deckToo.load(); }
+    void setLoadsDeck (bool, bool remember = true);
     juce::var capture (const juce::String& name, const juce::String& bank, const juce::String& description) const;
 
 private:
@@ -72,5 +80,5 @@ private:
     int factoryCount = 0, current = -1;
     juce::StringArray favourites;
     std::atomic<bool> modified { false };
-    std::atomic<bool> applying { false };
+    std::atomic<bool> applying { false }, deckToo { false };
 };

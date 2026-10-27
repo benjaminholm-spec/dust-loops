@@ -646,6 +646,43 @@ CassetteView::CassetteView (const dust::TapeMachine& t, std::atomic<float>* free
     startTimerHz (60);
 }
 
+void CassetteView::resized()
+{
+    const auto b = getLocalBounds().toFloat();
+    const auto shell = b.reduced (b.getWidth() * 0.035f, b.getHeight() * 0.06f);
+    const auto w = shell.getWidth(), h = shell.getHeight();
+    rollerRadius = h * 0.075f;
+    rollers = { Point<float> (shell.getCentreX(), shell.getY() + h * 0.2f),
+                Point<float> (shell.getRight() - w * 0.17f, shell.getBottom() - h * 0.2f),
+                Point<float> (shell.getX() + w * 0.17f, shell.getBottom() - h * 0.2f) };
+
+    // The tape wraps the outside of each roller: straight runs between tangent points, arcs round the rollers.
+    loopPath.clear();
+    const auto r = rollerRadius + 1.0f;
+    const auto centroid = (rollers[0] + rollers[1] + rollers[2]) / 3.0f;
+    for (size_t i = 0; i < 3; ++i)
+    {
+        const auto a = rollers[i], next = rollers[(i + 1) % 3];
+        const auto dir = (next - a) / a.getDistanceFrom (next);
+        auto normal = Point<float> (-dir.y, dir.x);
+        if (normal.getDotProduct (a - centroid) < 0.0f) normal = -normal; // outward
+        const auto from = a + normal * r, to = next + normal * r;
+        if (i == 0) loopPath.startNewSubPath (from); else loopPath.lineTo (from);
+        loopPath.lineTo (to);
+        // Arc round the next roller to the start of the following run
+        const auto after = rollers[(i + 2) % 3];
+        const auto dir2 = (after - next) / next.getDistanceFrom (after);
+        auto normal2 = Point<float> (-dir2.y, dir2.x);
+        if (normal2.getDotProduct (next - centroid) < 0.0f) normal2 = -normal2;
+        const auto startAngle = std::atan2 (normal.x, -normal.y), endAngle = std::atan2 (normal2.x, -normal2.y);
+        auto sweep = endAngle - startAngle;
+        while (sweep < 0.0f) sweep += MathConstants<float>::twoPi;
+        loopPath.addCentredArc (next.x, next.y, r, r, 0.0f, startAngle, startAngle + sweep);
+    }
+    loopPath.closeSubPath();
+    loopLength = std::max (1.0f, loopPath.getLength());
+}
+
 void CassetteView::timerCallback()
 {
     const auto now = Time::getMillisecondCounterHiRes();
@@ -655,134 +692,98 @@ void CassetteView::timerCallback()
     const auto frozen = freeze->load() >= 0.5f;
     const auto speed = frozen ? 0.0f : tape.speedDisplay.load();
     phase = tape.headPhase[0].load();
-
-    // Angular speed = tape speed / pack radius: the emptier reel spins faster.
-    const auto leftFill = 0.5f + 0.4f * std::cos (MathConstants<float>::twoPi * phase);
-    const auto packL = std::sqrt (0.16f + leftFill * 0.84f), packR = std::sqrt (0.16f + (1.0f - leftFill) * 0.84f);
-    const auto base = MathConstants<float>::twoPi * 0.55f * speed * dt;
-    leftAngle += base / packL;
-    rightAngle += base / packR;
-    leftAngle = std::fmod (leftAngle, MathConstants<float>::twoPi);
-    rightAngle = std::fmod (rightAngle, MathConstants<float>::twoPi);
+    travel = std::fmod (travel + speed * dt * 60.0f + loopLength, loopLength); // texture slides at tape speed
     repaint();
-}
-
-void CassetteView::drawReel (Graphics& g, Point<float> c, float hubR, float packR, float angle) const
-{
-    // Tape pack: dark brown oxide with faint winding rings
-    ColourGradient pack (Colour (0xff3b2a1f), c.x - packR * 0.3f, c.y - packR * 0.3f, Colour (0xff1b120c), c.x + packR, c.y + packR, true);
-    g.setGradientFill (pack);
-    g.fillEllipse (c.x - packR, c.y - packR, packR * 2.0f, packR * 2.0f);
-    Random r (7);
-    for (int i = 0; i < 9; ++i)
-    {
-        const auto rr = hubR + (packR - hubR) * r.nextFloat();
-        g.setColour (Colours::black.withAlpha (0.18f));
-        g.drawEllipse (c.x - rr, c.y - rr, rr * 2.0f, rr * 2.0f, 0.6f);
-    }
-    // Sheen on the pack edge, rotating with the reel
-    Path sheen;
-    sheen.addCentredArc (c.x, c.y, packR - 1.0f, packR - 1.0f, 0.0f, angle, angle + 1.1f, true);
-    g.setColour (Colour (0xff8a6a50).withAlpha (0.25f));
-    g.strokePath (sheen, PathStrokeType (1.5f));
-
-    // White plastic hub with six teeth inside
-    g.setColour (Colour (0xffd9d6cf));
-    g.fillEllipse (c.x - hubR, c.y - hubR, hubR * 2.0f, hubR * 2.0f);
-    g.setColour (Colour (0xff141414));
-    const auto hole = hubR * 0.58f;
-    g.fillEllipse (c.x - hole, c.y - hole, hole * 2.0f, hole * 2.0f);
-    g.setColour (Colour (0xffd9d6cf));
-    for (int i = 0; i < 6; ++i)
-    {
-        const auto a = angle + MathConstants<float>::twoPi * (float) i / 6.0f;
-        Path tooth;
-        tooth.addRectangle (-hole * 0.16f, -hole, hole * 0.32f, hole * 0.42f);
-        g.fillPath (tooth, AffineTransform::rotation (a).translated (c));
-    }
-    g.setColour (Colours::black.withAlpha (0.35f));
-    g.drawEllipse (c.x - hubR, c.y - hubR, hubR * 2.0f, hubR * 2.0f, 1.0f);
 }
 
 void CassetteView::paint (Graphics& g)
 {
     const auto b = getLocalBounds().toFloat();
 
-    // The deck's window: recessed, smoked glass
+    // The deck's window: recessed and dark behind the clear cassette
     Art::drawRecess (g, b, 6.0f);
-    g.setColour (Colour (0xff050506));
+    g.setColour (Colour (0xff060607));
     g.fillRoundedRectangle (b.reduced (3.0f), 5.0f);
 
     const auto shell = b.reduced (b.getWidth() * 0.035f, b.getHeight() * 0.06f);
-    const auto h = shell.getHeight();
-    const auto hubR = h * 0.1f, maxPack = h * 0.34f;
-    const auto cy = shell.getY() + h * 0.56f;
-    const Point<float> leftC (shell.getX() + shell.getWidth() * 0.29f, cy), rightC (shell.getX() + shell.getWidth() * 0.71f, cy);
+    const auto h = shell.getHeight(), w = shell.getWidth();
 
-    const auto leftFill = 0.5f + 0.4f * std::cos (MathConstants<float>::twoPi * phase);
-    const auto packRadius = [&] (float fill) { return std::sqrt (hubR * hubR * 1.4f + fill * (maxPack * maxPack - hubR * hubR * 1.4f)); };
-    const auto packL = packRadius (leftFill), packR = packRadius (1.0f - leftFill);
-
-    // Tape path along the bottom, past the heads
-    const auto pathY = shell.getBottom() - h * 0.1f;
-    Path tapePath;
-    tapePath.startNewSubPath (leftC.x - packL, cy);
-    tapePath.lineTo (shell.getX() + shell.getWidth() * 0.08f, pathY);
-    tapePath.lineTo (shell.getRight() - shell.getWidth() * 0.08f, pathY);
-    tapePath.lineTo (rightC.x + packR, cy);
-    g.setColour (Colour (0xff3b2a1f));
-    g.strokePath (tapePath, PathStrokeType (1.6f));
-
-    drawReel (g, leftC, hubR, packL, leftAngle);
-    drawReel (g, rightC, hubR, packR, rightAngle);
-
-    // Smoked shell over the reels, with a clearer window in the middle
-    Path shellPath;
-    shellPath.addRoundedRectangle (shell, h * 0.06f);
-    const auto window = Rectangle<float> (shell.getX() + shell.getWidth() * 0.18f, cy - h * 0.2f, shell.getWidth() * 0.64f, h * 0.4f);
-    shellPath.addRoundedRectangle (window, h * 0.05f);
-    shellPath.setUsingNonZeroWinding (false);
-    g.setColour (Colour (0xff1a1a1d).withAlpha (0.62f));
-    g.fillPath (shellPath);
-    g.setColour (Colours::white.withAlpha (0.05f));
-    g.fillRoundedRectangle (window, h * 0.05f);
-    g.setColour (Colours::white.withAlpha (0.1f));
-    g.strokePath (shellPath, PathStrokeType (1.0f));
-
-    // Paper label across the top: old, handwritten
-    const auto label = Rectangle<float> (shell.getX() + shell.getWidth() * 0.06f, shell.getY() + h * 0.06f, shell.getWidth() * 0.88f, h * 0.22f);
-    ColourGradient paper (Colour (0xffcbbf9f), label.getX(), label.getY(), Colour (0xffa99a76), label.getRight(), label.getBottom(), false);
-    g.setGradientFill (paper);
-    g.fillRect (label);
-    g.setColour (Colour (0xff6b5a3c).withAlpha (0.4f));
-    g.drawLine (label.getX() + 6.0f, label.getBottom() - 6.0f, label.getRight() - 6.0f, label.getBottom() - 6.0f, 0.6f);
-    Random stains (19);
-    for (int i = 0; i < 5; ++i)
+    // Clear shell: faint body, moulded edge, inner ribs and screw posts seen through the plastic
+    g.setColour (Colour (0xffcfd8e0).withAlpha (0.05f));
+    g.fillRoundedRectangle (shell, h * 0.06f);
+    g.setColour (Colour (0xffcfd8e0).withAlpha (0.22f));
+    g.drawRoundedRectangle (shell, h * 0.06f, 1.2f);
+    g.setColour (Colour (0xffcfd8e0).withAlpha (0.08f));
+    g.drawRoundedRectangle (shell.reduced (h * 0.05f), h * 0.04f, 1.0f);
+    for (auto p : { shell.getTopLeft().translated (h * 0.12f, h * 0.12f), shell.getTopRight().translated (-h * 0.12f, h * 0.12f),
+                    shell.getBottomLeft().translated (h * 0.12f, -h * 0.12f), shell.getBottomRight().translated (-h * 0.12f, -h * 0.12f) })
     {
-        const auto s = 4.0f + 14.0f * stains.nextFloat();
-        g.setColour (Colour (0xff7a6440).withAlpha (0.12f));
-        g.fillEllipse (label.getX() + label.getWidth() * stains.nextFloat(), label.getY() + label.getHeight() * stains.nextFloat() - s * 0.5f, s, s * 0.7f);
+        g.setColour (Colour (0xffcfd8e0).withAlpha (0.12f));
+        g.drawEllipse (p.x - h * 0.05f, p.y - h * 0.05f, h * 0.1f, h * 0.1f, 1.0f);
+        Art::drawScrew (g, p, 3.0f, 0.4f);
     }
-    g.setColour (Colour (0xff1f2a55).withAlpha (0.85f)); // biro
-    g.setFont (FontOptions ("Marker Felt", h * 0.13f, Font::plain));
-    g.drawText ("dust loops  -  side A", label.reduced (8.0f, 0.0f), Justification::centredLeft);
-    g.setColour (Colour (0xff3a2f20));
-    g.setFont (Art::silk (h * 0.12f));
-    g.drawText ("A", label.reduced (8.0f, 0.0f), Justification::centredRight);
 
-    // Screws and the head opening along the bottom edge
-    for (auto p : { shell.getTopLeft().translated (8.0f, 8.0f), shell.getTopRight().translated (-8.0f, 8.0f),
-                    shell.getBottomLeft().translated (8.0f, -8.0f), shell.getBottomRight().translated (-8.0f, -8.0f) })
-        Art::drawScrew (g, p, 3.2f, 0.4f);
+    // Two empty hub wells, the usual cassette landmarks (the loop doesn't use them)
+    for (auto x : { shell.getX() + w * 0.29f, shell.getX() + w * 0.71f })
+    {
+        const Point<float> c (x, shell.getY() + h * 0.48f);
+        const auto hubR = h * 0.1f;
+        g.setColour (Colour (0xffcfd8e0).withAlpha (0.1f));
+        g.drawEllipse (c.x - hubR * 1.5f, c.y - hubR * 1.5f, hubR * 3.0f, hubR * 3.0f, 1.0f);
+        g.setColour (Colour (0xffd9d6cf).withAlpha (0.55f));
+        g.drawEllipse (c.x - hubR, c.y - hubR, hubR * 2.0f, hubR * 2.0f, 1.6f);
+    }
+
+    // The tape loop: dark oxide, seen edge-on, with faint texture sliding along it
+    g.setColour (Colour (0xff5a3d28));
+    g.strokePath (loopPath, PathStrokeType (3.2f, PathStrokeType::curved, PathStrokeType::rounded));
+    constexpr int marks = 28;
+    for (int i = 0; i < marks; ++i)
+    {
+        const auto d = std::fmod (travel + loopLength * (float) i / (float) marks, loopLength);
+        const auto p = loopPath.getPointAlongPath (d);
+        g.setColour (Colour (0xff9a7356).withAlpha (i % 3 == 0 ? 0.55f : 0.25f));
+        g.fillEllipse (p.x - 1.1f, p.y - 1.1f, 2.2f, 2.2f);
+    }
+
+    // Splice mark: a strip of silver splicing tape, once round per pass of loop A
+    {
+        const auto d = std::fmod (phase * loopLength + loopLength, loopLength);
+        const auto p = loopPath.getPointAlongPath (d), q = loopPath.getPointAlongPath (std::fmod (d + 7.0f, loopLength));
+        g.setColour (Colour (0xffd8dde2));
+        g.drawLine ({ p, q }, 3.4f);
+    }
+
+    // Guide rollers, turning with the tape
+    for (auto c : rollers)
+    {
+        const auto r = rollerRadius;
+        g.setColour (Colour (0xffe6e3dc));
+        g.fillEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
+        g.setColour (Colour (0xff2a2a2a));
+        g.fillEllipse (c.x - r * 0.35f, c.y - r * 0.35f, r * 0.7f, r * 0.7f);
+        const auto angle = travel / r;
+        g.setColour (Colours::black.withAlpha (0.35f));
+        for (int k = 0; k < 3; ++k)
+        {
+            const auto a = angle + MathConstants<float>::twoPi * (float) k / 3.0f;
+            g.drawLine (c.x + std::sin (a) * r * 0.45f, c.y - std::cos (a) * r * 0.45f,
+                        c.x + std::sin (a) * r * 0.9f, c.y - std::cos (a) * r * 0.9f, 1.0f);
+        }
+    }
+
+    // The head opening along the bottom edge, where the tape meets the deck's head
     Path mouth;
-    const auto mw = shell.getWidth() * 0.5f, mx = shell.getCentreX();
-    mouth.addQuadrilateral (mx - mw * 0.5f, shell.getBottom(), mx - mw * 0.42f, shell.getBottom() - h * 0.13f,
-                            mx + mw * 0.42f, shell.getBottom() - h * 0.13f, mx + mw * 0.5f, shell.getBottom());
-    g.setColour (Colour (0xff0d0d0e).withAlpha (0.8f));
-    g.fillPath (mouth);
+    const auto mw = w * 0.5f, mx = shell.getCentreX();
+    mouth.addQuadrilateral (mx - mw * 0.5f, shell.getBottom(), mx - mw * 0.42f, shell.getBottom() - h * 0.1f,
+                            mx + mw * 0.42f, shell.getBottom() - h * 0.1f, mx + mw * 0.5f, shell.getBottom());
+    g.setColour (Colour (0xffcfd8e0).withAlpha (0.12f));
+    g.strokePath (mouth, PathStrokeType (1.0f));
+    g.setColour (Art::Colours::bareMetal);
+    g.fillRoundedRectangle (mx - w * 0.05f, shell.getBottom() - h * 0.06f, w * 0.1f, h * 0.06f, 2.0f);
 
     // Glass reflection over everything
-    ColourGradient glass (Colours::white.withAlpha (0.06f), b.getX(), b.getY(), Colours::white.withAlpha (0.0f), b.getX() + b.getWidth() * 0.4f, b.getBottom(), false);
+    ColourGradient glass (Colours::white.withAlpha (0.07f), b.getX(), b.getY(), Colours::white.withAlpha (0.0f), b.getX() + b.getWidth() * 0.4f, b.getBottom(), false);
     g.setGradientFill (glass);
     g.fillRoundedRectangle (b.reduced (3.0f), 5.0f);
 }

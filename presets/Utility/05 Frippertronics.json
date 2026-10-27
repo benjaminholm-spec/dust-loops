@@ -56,10 +56,6 @@
     "loopA.mute": false,
     "loopB.mute": false,
     "loopC.mute": true,
-    "loopA.rec": true,
-    "loopB.rec": true,
-    "loopC.rec": false,
-    "synth.level": -6.0,
-    "global.master": 0.0
+    "synth.level": 1.4
   }
 }

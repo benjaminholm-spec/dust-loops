@@ -54,7 +54,6 @@
     "pedal.hall.tone": 0.25,
     "pedal.hall.mix": 0.4,
     "pedal.hall.loopAmt": 0.15,
-    "synth.level": -1.8,
-    "global.master": 0.0
+    "synth.level": -3.1
   }
 }

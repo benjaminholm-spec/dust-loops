@@ -35,7 +35,7 @@ def mac(bloom=0.0, motion=0.0, warp=0.0, haze=0.0):
 
 
 def loops(**kw):
-    """loops(beats=(16, 13, 11), level=(-3, -3, -6), rec=(True, True, False), ...)"""
+    """loops(beats=(16, 13, 11), level=(-3, -3, -6), mute=(False, False, True), ...). REC arms are never stored."""
     out = {}
     for key, values in kw.items():
         for i, v in enumerate(values):
@@ -72,11 +72,9 @@ def P(bank, name, description, *parts, order=DEFAULT_ORDER):
     params = dict(ALL_OFF)
     for part in parts:
         params.update(part)
-    # Boosts go to the synth level, cuts to the master (linear even when pedals compress after the tape).
-    trim = TRIMS.get(name, 0.0)
-    level = params.get('synth.level', -6.0) + max(0.0, trim)
-    params['synth.level'] = round(min(6.0, level), 1)
-    params['global.master'] = round(min(0.0, trim) + max(0.0, level - 6.0), 1)
+    # Loudness trim from the render tool, measured as the plugin normally loads presets: sound only.
+    level = params.get('synth.level', -6.0) + TRIMS.get(name, 0.0)
+    params['synth.level'] = round(max(-30.0, min(6.0, level)), 1)
     PRESETS.append({'name': name, 'bank': bank, 'description': description, 'pedalOrder': order, 'params': params})
 
 
@@ -455,7 +453,7 @@ P(UT, 'Tape Echo', 'A plain tape echo with three heads. Good for the FX version 
 
 P(UT, 'Frippertronics', 'Two long free loops at high feedback on clean tape. Layer slowly; it builds forever.',
   dco_pad(cutoff=2000, chorus='I'), tape_type('Chrome'), tape(sync='Free', feed=0.92, mix=0.55),
-  loops(seconds=(11.0, 17.0, 17.0), mute=(False, False, True), rec=(True, True, False)))
+  loops(seconds=(11.0, 17.0, 17.0), mute=(False, False, True)))
 
 P(UT, 'Dry Synth', 'The synth on its own: the tape is mixed out. Turn MIX up to bring the loops in.',
   dco_pad(), tape_type('Chrome'), tape(mix=0.0), pedal('hall', decay=6.0, tone=0.35, mix=0.25))

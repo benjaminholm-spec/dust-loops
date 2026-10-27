@@ -49,7 +49,6 @@
     "tape.time": 0.62,
     "tape.feed": 0.45,
     "tape.mix": 0.35,
-    "synth.level": 4.1,
-    "global.master": 0.0
+    "synth.level": 0.5
   }
 }

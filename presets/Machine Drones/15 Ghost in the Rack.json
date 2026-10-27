@@ -51,7 +51,6 @@
     "pedal.hall.decay": 35.0,
     "pedal.hall.tone": 0.2,
     "pedal.hall.mix": 0.4,
-    "synth.level": -6.0,
-    "global.master": 0.0
+    "synth.level": -6.9
   }
 }
