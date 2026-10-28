@@ -1,5 +1,7 @@
 # Dust Loops
 
+[![Support Dust Loops on Ko-fi](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/benjaminholm)
+
 **A tape-loop drone instrument and effect for Logic Pro (Audio Unit, macOS).** It's a modded cassette deck with a synth on top and a pedalboard beside it. It's made for slowly evolving, worn, nostalgic ambient music in the spirit of Boards of Canada, Alessandro Cortini and Burial.
 
 Play a chord. It goes onto three tape loops of different lengths, so the repeats drift in and out of phase. Each pass wears the tape a little more, and the pedals inside the loop build up over time. Turn FEED up and it becomes a drone. Hit FREEZE and it holds forever.
@@ -40,6 +42,8 @@ Play a chord. It goes onto three tape loops of different lengths, so the repeats
 | ![All synth settings](docs/images/edit.jpg) | ![Preset browser](docs/images/browser.jpg) |
 
 It's a personal project by Dust Planet Records, built with JUCE 9 and C++20. There's no installer: you build it from source with the script below.
+
+**Like it?** Dust Loops is free. If it ends up on one of your tracks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/benjaminholm). ☕
 
 | Target | Format | AU type / codes | Use it on |
 |---|---|---|---|
