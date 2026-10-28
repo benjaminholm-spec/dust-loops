@@ -7,6 +7,7 @@
 - **FX version:** a DUST LOOPS FX nameplate fills the space where the instrument has its synth strip, so both versions share one layout.
 - The editor now limits its opening size by screen width as well as height.
 - Added a `DustSnapshotFX` target to render the FX UI.
+- **The cassette shows all three loops.** Lettered markers A (red), B (amber) and C (blue) ride the tape loop, each going round once per pass of its own loop. Because the loops have different lengths, the markers drift apart and line up again as the loops phase.
 
 ## 0.5.0 — Planet pedals, new logo, presets by instrument type (2026-10-28)
 - **Planet pedals.** Each pedal is painted as a planet, with its name printed by the footswitch:

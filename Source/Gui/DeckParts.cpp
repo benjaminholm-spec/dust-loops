@@ -691,7 +691,8 @@ void CassetteView::timerCallback()
 
     const auto frozen = freeze->load() >= 0.5f;
     const auto speed = frozen ? 0.0f : tape.speedDisplay.load();
-    phase = tape.headPhase[0].load();
+    for (size_t i = 0; i < phases.size(); ++i)
+        phases[i] = tape.headPhase[i].load();
     travel = std::fmod (travel + speed * dt * 60.0f + loopLength, loopLength); // texture slides at tape speed
     repaint();
 }
@@ -746,12 +747,28 @@ void CassetteView::paint (Graphics& g)
         g.fillEllipse (p.x - 1.1f, p.y - 1.1f, 2.2f, 2.2f);
     }
 
-    // Splice mark: a strip of silver splicing tape, once round per pass of loop A
+    // Loop markers: a splice tab for each loop at its own head position, lettered on the outside.
     {
-        const auto d = std::fmod (phase * loopLength + loopLength, loopLength);
-        const auto p = loopPath.getPointAlongPath (d), q = loopPath.getPointAlongPath (std::fmod (d + 7.0f, loopLength));
-        g.setColour (Colour (0xffd8dde2));
-        g.drawLine ({ p, q }, 3.4f);
+        static const Colour markerColours[] { Colour (0xffff4a36), Colour (0xffffb23a), Colour (0xff8fd6ff) };
+        const auto centroid = (rollers[0] + rollers[1] + rollers[2]) / 3.0f;
+        for (size_t i = 0; i < phases.size(); ++i)
+        {
+            const auto d = std::fmod (phases[i] * loopLength + loopLength, loopLength);
+            const auto p = loopPath.getPointAlongPath (d), q = loopPath.getPointAlongPath (std::fmod (d + 8.0f, loopLength));
+            const auto colour = markerColours[i];
+            g.setColour (colour.withAlpha (0.3f));
+            g.drawLine ({ p, q }, 7.0f);
+            g.setColour (colour);
+            g.drawLine ({ p, q }, 3.6f);
+
+            const auto mid = (p + q) * 0.5f;
+            auto out = mid - centroid;
+            out /= std::max (1.0f, out.getDistanceFromOrigin());
+            const auto labelCentre = mid + out * 11.0f;
+            g.setFont (Art::silk (11.0f));
+            g.drawText (String::charToString ((juce_wchar) ('A' + i)),
+                        Rectangle<float> (12.0f, 12.0f).withCentre (labelCentre), Justification::centred, false);
+        }
     }
 
     // Guide rollers, turning with the tape

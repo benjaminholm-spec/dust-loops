@@ -239,8 +239,9 @@ private:
 
 //==============================================================================
 // A clear loop cassette in its window: an endless loop of tape runs round three guide rollers in a
-// rounded triangle, past the head at the bottom. A splice mark goes round once per pass of loop A;
-// everything moves at the real tape speed (backwards in reverse, still in FREEZE).
+// rounded triangle, past the head at the bottom. Three markers - A, B and C - ride the loop, each
+// going round once per pass of its own loop, so they drift apart and line up again as the loops phase.
+// Everything moves at the real tape speed (backwards in reverse, still in FREEZE).
 class CassetteView : public juce::Component, private juce::Timer
 {
 public:
@@ -256,7 +257,8 @@ private:
     juce::Path loopPath;                      // the tape loop, clockwise from the top roller
     std::array<juce::Point<float>, 3> rollers; // top, bottom right, bottom left
     float rollerRadius = 8.0f, loopLength = 1.0f;
-    float phase = 0.0f, travel = 0.0f;
+    std::array<float, 3> phases {};
+    float travel = 0.0f;
     double lastTime = 0.0;
 };
 } // namespace deck

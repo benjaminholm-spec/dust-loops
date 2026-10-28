@@ -58,7 +58,7 @@ Logic's own preset menu (top of the plugin window) also lists the factory preset
 
 **The deck:**
 
-1. **Play a chord.** Everything you play goes onto three tape loops (A, B and C) of different lengths, so the repeats drift against each other.
+1. **Play a chord.** Everything you play goes onto three tape loops (A, B and C) of different lengths, so the repeats drift against each other. In the cassette window, the markers A, B and C each go round once per pass of their own loop.
 2. **FEED** sets how long it lasts. Low: each repeat fades quickly. High: layers pile up into a drone.
 3. **FREEZE** (the yellow button) holds what's on the tape forever. Nothing new goes on and nothing fades. Play over the top of it.
 4. **TAPE SPEED** (the big knob) slows the tape down, speeds it up or runs it backwards, and the pitch follows. It clicks in at 1x, 0.5x and -1x. Double-click any knob to reset it.
