@@ -64,6 +64,41 @@ private:
 };
 
 //==============================================================================
+// Keeps a recording loop from growing on its own. It compares the level of what was on the tape with
+// the level of what is about to be re-recorded from it (worn, scaled by FEED, pedals added) and turns
+// the re-recorded part down whenever it would come back louder. The pedals still change the sound on
+// every pass; only the level is held, so nothing piles up into a howl. New input is added after this.
+class LoopGainGovernor
+{
+public:
+    void prepare (float sampleRate) noexcept
+    {
+        levelCoef = 1.0f - std::exp (-1.0f / (0.25f * sampleRate));
+        downCoef = 1.0f - std::exp (-1.0f / (0.005f * sampleRate));
+        upCoef = 1.0f - std::exp (-1.0f / (0.08f * sampleRate));
+        reset();
+    }
+
+    void reset() noexcept { before = after = 0.0f; gain = 1.0f; }
+
+    // Returns the gain for the re-recorded frame.
+    float process (float oldL, float oldR, float newL, float newR) noexcept
+    {
+        before += levelCoef * (0.5f * (oldL * oldL + oldR * oldR) - before);
+        after += levelCoef * (0.5f * (newL * newL + newR * newR) - after);
+        before = sanitize (before);
+        after = sanitize (after);
+        const auto target = after > before && after > 1.0e-12f ? std::sqrt (before / after) : 1.0f;
+        gain += (target < gain ? downCoef : upCoef) * (target - gain);
+        return gain;
+    }
+
+private:
+    float before = 0.0f, after = 0.0f, gain = 1.0f;
+    float levelCoef = 0.0f, downCoef = 0.0f, upCoef = 0.0f;
+};
+
+//==============================================================================
 // Output safety: instant-attack peak limiter at -0.3 dBFS with a smooth release, then a hard ceiling.
 // Transparent at sane levels; only there to catch accidents.
 class OutputLimiter

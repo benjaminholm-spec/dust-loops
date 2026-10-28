@@ -13,7 +13,8 @@
 // what was recorded at 0.5x plays an octave up at 1x, a stopping tape slides down in pitch and goes
 // quiet. Every time a cell passes the head it is played, worn (age, saturation, dropouts) and scaled
 // by FEED, so an unarmed loop can only stay the same or fade. Only an armed (recording) loop gets
-// anything added: new input, record hiss and the pedals in the loop, limited so it can never run away.
+// anything added: new input, record hiss and the pedals in the loop. A governor keeps what is
+// re-recorded from the old tape no louder than it was, so the loop never builds up on its own.
 //
 // All memory is allocated in prepare(); process() never allocates, locks or does I/O.
 namespace dust
@@ -97,6 +98,7 @@ public:
         for (auto& l : loops)
         {
             l.limiter.prepare (sr);
+            l.governor.prepare (sr);
             l.wear = {};
             l.clearCursor = -1;
         }
@@ -309,6 +311,7 @@ private:
         int length = 1;
         double position = 0.0;
         FeedbackLimiter limiter;
+        LoopGainGovernor governor;
         WearState wear;
         int clearCursor = -1; // >= 0 while a clear is in progress
     };
@@ -458,14 +461,19 @@ private:
                 {
                     const auto cell = (size_t) wrap (dir > 0 ? k0 + j : k0 - j + 1, len) * 2;
                     const auto frac = (float) j / (float) steps;
-                    auto cl = l.data[cell], cr = l.data[cell + 1];
+                    const auto oldL = l.data[cell], oldR = l.data[cell + 1];
+                    auto cl = oldL, cr = oldR;
                     wearCell (l.wear, cl, cr, wear, ls.armed);
                     cl *= feed;
                     cr *= feed;
                     if (ls.armed)
                     {
-                        cl += injL + prevIn[0] + frac * (inL - prevIn[0]);
-                        cr += injR + prevIn[1] + frac * (inR - prevIn[1]);
+                        // The pedals' copy goes on with the old tape, never louder than it was.
+                        cl += injL;
+                        cr += injR;
+                        const auto g = l.governor.process (oldL, oldR, cl, cr);
+                        cl = cl * g + prevIn[0] + frac * (inL - prevIn[0]);
+                        cr = cr * g + prevIn[1] + frac * (inR - prevIn[1]);
                     }
                     l.limiter.process (cl, cr);
                     l.data[cell] = cl;

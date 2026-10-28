@@ -57,7 +57,7 @@ Play a chord. It goes onto three tape loops of different lengths, so the repeats
 - **Pedalboard.** Five pedals, each painted as a planet:
   - **Dirt** (Mars)
   - **Warble** (Neptune)
-  - **Drift** filter (Uranus)
+  - **Drift** filter (Earth)
   - **Cloud** granular shimmer (Jupiter)
   - **Hall** reverb (Saturn)
 
@@ -157,7 +157,7 @@ Logic's own preset menu (top of the plugin window) also lists the factory preset
    - tape type, wow, flutter, hiss, saturation, age and dropouts
    - inertia, brake time and master level
 
-10. **Pedals** (to the right of the deck), each painted as a planet: DIRT is Mars, WARBLE Neptune, DRIFT Uranus, CLOUD Jupiter and HALL Saturn. Stomp the footswitch to turn a pedal on.
+10. **Pedals** (to the right of the deck), each painted as a planet: DIRT is Mars, WARBLE Neptune, DRIFT Earth, CLOUD Jupiter and HALL Saturn. Stomp the footswitch to turn a pedal on.
     - **LOOP** puts a copy of the pedal inside the tape loop, so its effect builds up on every pass. That's where the drones come from. The little trim next to it sets how much.
     - The signal snakes through the board: left to right along the top row, right to left along the middle row, left to right along the bottom row, from IN to OUT. The cables show the route.
     - Drag a pedal by its body to any spot to move it. Pedals before the **TAPE DECK** block go onto the tape; pedals after it colour what comes off it.

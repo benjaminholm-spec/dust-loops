@@ -53,6 +53,47 @@ void prepareAt (DustLoopsProcessor& p, double rate, int block = blockSize)
     p.prepareToPlay (rate, block);
 }
 
+// Worst case for feedback: FEED at max and every pedal on and in the loop at full amount. Records a chord
+// on loop A, keeps A recording (or not), plays nothing more, and returns the tape level at the start
+// and a minute later.
+std::pair<float, float> buildUp (DustLoopsProcessor& p, bool keepRecording)
+{
+    prepareAt (p, 48000.0);
+    setParam (p, ID::tape::mix, 1.0f);
+    setParam (p, ID::tape::feed, 1.0f);
+    setParam (p, ID::synth::release, 0.05f);
+    for (int i = 0; i < 5; ++i)
+    {
+        setParam (p, ID::pedal::id (i, ID::pedal::on), 1.0f);
+        setParam (p, ID::pedal::id (i, ID::pedal::loop), 1.0f);
+        setParam (p, ID::pedal::id (i, ID::pedal::loopAmt), 1.0f);
+    }
+    setParam (p, ID::loop::rec[1], 0.0f);
+    setParam (p, ID::loop::rec[2], 0.0f);
+
+    juce::AudioBuffer<float> buffer (2, blockSize);
+    juce::MidiBuffer midi;
+    for (int note : { 48, 55, 60, 64 })
+        midi.addEvent (juce::MidiMessage::noteOn (1, note, 0.6f), 0);
+    for (int b = 0; b < (int) (2.0 * 48000.0 / blockSize); ++b)
+    {
+        buffer.clear();
+        p.processBlock (buffer, midi);
+        midi.clear();
+    }
+    for (int note : { 48, 55, 60, 64 })
+        midi.addEvent (juce::MidiMessage::noteOff (1, note), 0);
+    buffer.clear();
+    p.processBlock (buffer, midi);
+    if (! keepRecording)
+        setParam (p, ID::loop::rec[0], 0.0f);
+
+    const auto start = tapeLevel (p, 48000.0, 10.0f);
+    for (int pass = 0; pass < 5; ++pass)
+        tapeLevel (p, 48000.0, 10.0f);
+    return { start, tapeLevel (p, 48000.0, 10.0f) };
+}
+
 class RobustnessTests : public juce::UnitTest
 {
 public:
@@ -165,41 +206,17 @@ public:
         beginTest ("with recording off, the tape never builds up, even at full FEED with every pedal in the loop");
         {
             DustLoopsProcessor p;
-            prepareAt (p, 48000.0);
-            setParam (p, ID::tape::mix, 1.0f);
-            setParam (p, ID::tape::feed, 1.0f);
-            for (int i = 0; i < 5; ++i)
-            {
-                setParam (p, ID::pedal::id (i, ID::pedal::on), 1.0f);
-                setParam (p, ID::pedal::id (i, ID::pedal::loop), 1.0f);
-                setParam (p, ID::pedal::id (i, ID::pedal::loopAmt), 1.0f);
-            }
-
-            // Record a chord on loop A only, then stop recording.
-            setParam (p, ID::loop::rec[1], 0.0f);
-            setParam (p, ID::loop::rec[2], 0.0f);
-            juce::AudioBuffer<float> buffer (2, blockSize);
-            juce::MidiBuffer midi;
-            for (int note : { 48, 55, 60, 64 })
-                midi.addEvent (juce::MidiMessage::noteOn (1, note, 0.6f), 0);
-            for (int b = 0; b < (int) (2.0 * 48000.0 / blockSize); ++b)
-            {
-                buffer.clear();
-                p.processBlock (buffer, midi);
-                midi.clear();
-            }
-            for (int note : { 48, 55, 60, 64 })
-                midi.addEvent (juce::MidiMessage::noteOff (1, note), 0);
-            buffer.clear();
-            p.processBlock (buffer, midi);
-            setParam (p, ID::loop::rec[0], 0.0f);
-
-            const auto start = tapeLevel (p, 48000.0, 10.0f);
-            for (int pass = 0; pass < 5; ++pass)
-                tapeLevel (p, 48000.0, 10.0f);
-            const auto later = tapeLevel (p, 48000.0, 10.0f);
+            const auto [start, later] = buildUp (p, false);
             expectGreaterThan (start, 0.001f, "nothing was recorded");
             expectLessThan (later, start * 1.05f, "the tape got louder with recording off");
+        }
+
+        beginTest ("a recording loop doesn't build up on its own either, at full FEED with every pedal in the loop");
+        {
+            DustLoopsProcessor p;
+            const auto [start, later] = buildUp (p, true);
+            expectGreaterThan (start, 0.001f, "nothing was recorded");
+            expectLessThan (later, start * 1.1f, "the tape got louder while recording silence");
         }
 
         beginTest ("presets never change which loops record");

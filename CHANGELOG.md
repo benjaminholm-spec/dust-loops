@@ -5,7 +5,9 @@
   - Now only an armed loop gets anything added: new input, record hiss and the in-loop pedals.
   - A loop that isn't recording can only stay the same (FEED at max) or fade (lower FEED).
   - ECHO mode is unchanged, because a tape echo always records.
-- New test: with recording off, FEED at max and every pedal in the loop at full amount, the tape level never rises.
+- **No more runaway feedback while recording either.** Each loop now has a governor: what gets re-recorded from the old tape (worn, scaled by FEED, plus the in-loop pedals) can never come back louder than it was. Pedals still change the sound on every pass, but the level holds. Anything new you play still goes on top, so overdubbing works as before.
+- **DRIFT is now Earth:** oceans, green and brown continents, cloud swirls, polar ice and a thin blue atmosphere, replacing Uranus.
+- New tests at FEED max with every pedal in the loop at full amount: the tape level never rises, with recording off or with a loop recording silence. Without the governor, the recording case doubled in a minute.
 
 ## Distribution (2026-10-28)
 - **Download and install without building.** GitHub Releases now carry a zip with both plugins, a double-click **Install Dust Loops.command** and **Uninstall Dust Loops.command**, and a READ ME FIRST. The installer:

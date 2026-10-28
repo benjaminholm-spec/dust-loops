@@ -41,7 +41,7 @@ const std::array<PedalDef, 5>& pedalDefs()
             { warble::depth, "Depth", "DEPTH: from gentle shimmer to seasick." },
             { warble::mix, "Mix", "MIX: how much wobble." } },
           warble::mode, "Vib", "VIB: lit = vibrato (pure pitch wobble). Off = chorus (wobble mixed with the dry sound).", nullptr, nullptr },
-        { "Drift", "Uranus", "DRIFT FILTER (Uranus): a resonant filter that sweeps very slowly on its own. Drag the pedal to move it.", Colour (0xff1d2a3a),
+        { "Drift", "Earth", "DRIFT FILTER (Earth): a resonant filter that sweeps very slowly on its own. Drag the pedal to move it.", Colour (0xff1d2a3a),
           { { drift::freq, "Freq", "FREQ: where the filter sits." },
             { drift::reso, "Reso", "RESO: resonance. High = whistling, vocal sweeps." },
             { drift::lfoRate, "Drift", "DRIFT: speed of the slow sweep, down to once every two minutes." },
@@ -132,7 +132,7 @@ void drawEnclosure (Graphics& g, Rectangle<float> b, Colour paint, int seed,
 
 //==============================================================================
 // Planet paint jobs: each pedal's face is a planet's surface, kept dark enough for the controls to read.
-enum class Planet { mars, neptune, uranus, jupiter, saturn };
+enum class Planet { mars, neptune, earth, jupiter, saturn };
 
 // Horizontal cloud bands with wavy edges.
 void drawBands (Graphics& g, Rectangle<float> a, const std::vector<Colour>& colours, int count, float wave, Random& r)
@@ -208,14 +208,53 @@ void drawPlanetSurface (Graphics& g, Rectangle<float> a, Planet planet, int seed
             drawStorm (g, { a.getX() + a.getWidth() * 0.7f, a.getY() + a.getHeight() * 0.62f }, 34.0f, 16.0f,
                        Colour (0xff0b1a48), Colour (0xff3d63c0));
             break;
-        case Planet::uranus:
+        case Planet::earth:
         {
-            g.fillAll (Colour (0xff4f8e98));
-            drawBands (g, a, { Colour (0xff5c9ea7), Colour (0xff467f89), Colour (0xff63a8b0) }, 7, 1.5f, r);
-            // Uranus's rings stand on end
-            g.setColour (Colour (0xffd8f0f2).withAlpha (0.28f));
-            for (auto k : { 0.0f, 5.0f, 9.0f })
-                g.drawEllipse (a.getCentreX() - 18.0f - k, a.getY() - 30.0f - k * 2.0f, 36.0f + k * 2.0f, a.getHeight() + 60.0f + k * 4.0f, 1.0f);
+            g.fillAll (Colour (0xff123a5c)); // deep ocean
+            for (int i = 0; i < 10; ++i)     // shallower water
+            {
+                const auto w = 30.0f + 50.0f * r.nextFloat();
+                g.setColour (Colour (0xff1f5a7e).withAlpha (0.35f + 0.2f * r.nextFloat()));
+                g.fillEllipse (a.getX() + r.nextFloat() * a.getWidth() - w * 0.3f, a.getY() + r.nextFloat() * a.getHeight(), w, w * 0.5f);
+            }
+            // Continents: clusters of blobs, green with dry brown interiors
+            const Point<float> landCentres[] { { 0.25f, 0.32f }, { 0.72f, 0.5f }, { 0.35f, 0.78f } };
+            for (auto lc : landCentres)
+            {
+                const auto c = Point<float> (a.getX() + lc.x * a.getWidth(), a.getY() + lc.y * a.getHeight());
+                for (int k = 0; k < 9; ++k)
+                {
+                    const auto w = 14.0f + 26.0f * r.nextFloat(), h = w * (0.5f + 0.5f * r.nextFloat());
+                    const auto x = c.x + (r.nextFloat() - 0.5f) * 50.0f, y = c.y + (r.nextFloat() - 0.5f) * 36.0f;
+                    g.setColour (Colour (0xff3d6b34).withAlpha (0.9f));
+                    g.fillEllipse (x - w * 0.5f, y - h * 0.5f, w, h);
+                    if (k % 3 == 0)
+                    {
+                        g.setColour (Colour (0xff7d6a40).withAlpha (0.7f));
+                        g.fillEllipse (x - w * 0.25f, y - h * 0.25f, w * 0.5f, h * 0.5f);
+                    }
+                }
+            }
+            // Weather: thin white cloud swirls drifting across
+            for (int i = 0; i < 8; ++i)
+            {
+                const auto y0 = a.getY() + r.nextFloat() * a.getHeight();
+                const auto x0 = a.getX() - 10.0f + r.nextFloat() * a.getWidth() * 0.6f;
+                const auto len = 50.0f + 80.0f * r.nextFloat(), phase = r.nextFloat() * 6.28f;
+                Path swirl;
+                swirl.startNewSubPath (x0, y0);
+                for (float t = 0.0f; t <= len; t += 4.0f)
+                    swirl.lineTo (x0 + t, y0 + 5.0f * std::sin (t * 0.06f + phase));
+                g.setColour (Colours::white.withAlpha (0.25f + 0.25f * r.nextFloat()));
+                g.strokePath (swirl, PathStrokeType (2.0f + 3.0f * r.nextFloat(), PathStrokeType::curved, PathStrokeType::rounded));
+            }
+            drawStorm (g, { a.getX() + a.getWidth() * 0.78f, a.getY() + a.getHeight() * 0.25f }, 26.0f, 18.0f,
+                       Colour (0xffeef4f8).withAlpha (0.55f), Colours::white.withAlpha (0.2f)); // a cyclone
+            g.setColour (Colour (0xffeef4f8).withAlpha (0.6f)); // polar ice
+            g.fillEllipse (a.getCentreX() - 40.0f, a.getBottom() - 10.0f, 80.0f, 24.0f);
+            // A thin blue atmosphere along the edge
+            g.setColour (Colour (0xff7fc4ff).withAlpha (0.35f));
+            g.drawRect (a.reduced (1.0f), 2.0f);
             break;
         }
         case Planet::jupiter:
