@@ -48,24 +48,49 @@ public:
     static constexpr double echoTapeSeconds = 8.0;
     enum class Transport { playing = 0, stopped = 1, paused = 2 };
 
+    // Allocates the tape. Never erases it: when the sample rate changes (say the audio interface
+    // changed), what's on the tape is resampled to the new rate so it keeps playing at the same pitch.
     void prepare (double newSampleRate)
     {
-        const auto cellsChanged = std::abs (newSampleRate - sampleRate) > 0.5 || loops[0].data.empty();
+        if (newSampleRate <= 0.0)
+            return;
+        const auto firstTime = loops[0].data.empty();
+        const auto rateChanged = ! firstTime && std::abs (newSampleRate - sampleRate) > 0.5;
+        const auto oldRate = sampleRate;
         sampleRate = newSampleRate;
         const auto sr = (float) sampleRate;
 
-        if (cellsChanged)
+        if (firstTime || rateChanged)
         {
+            const auto oldCapacity = capacity, oldEchoSize = echoSize;
             capacity = (int) (maxLoopSeconds * sampleRate) + 4;
+            echoSize = (int) (echoTapeSeconds * sampleRate);
+            const auto ratio = rateChanged ? sampleRate / oldRate : 1.0;
             for (auto& l : loops)
             {
-                l.data.assign ((size_t) capacity * 2, 0.0f);
-                l.length = (int) (7.0 * sampleRate);
-                l.position = 0.0;
+                std::vector<float> fresh ((size_t) capacity * 2, 0.0f);
+                if (rateChanged)
+                {
+                    resample (l.data.data(), oldCapacity, fresh.data(), capacity, ratio);
+                    l.length = std::clamp ((int) std::round (l.length * ratio), 1, capacity - 4);
+                    l.position = std::fmod (l.position * ratio, (double) l.length);
+                }
+                else
+                {
+                    l.length = (int) (7.0 * sampleRate);
+                    l.position = 0.0;
+                }
+                l.data = std::move (fresh);
             }
-            echoSize = (int) (echoTapeSeconds * sampleRate);
-            echo.assign ((size_t) echoSize * 2, 0.0f);
-            echoWrite = 0.0;
+            std::vector<float> freshEcho ((size_t) echoSize * 2, 0.0f);
+            if (rateChanged)
+            {
+                resample (echo.data(), oldEchoSize, freshEcho.data(), echoSize, ratio);
+                echoWrite = std::fmod (echoWrite * ratio, (double) echoSize);
+            }
+            else
+                echoWrite = 0.0;
+            echo = std::move (freshEcho);
         }
 
         for (auto& l : loops)
@@ -211,6 +236,55 @@ public:
     Transport getTransport() const noexcept { return transport; }
     double getHeadPosition (int i) const noexcept { return loops[(size_t) i].position; }
     int getLoopLength (int i) const noexcept { return loops[(size_t) i].length; }
+    double getSampleRate() const noexcept { return sampleRate; }
+
+    // ---- Saving the tape with the project ------------------------------------------------------
+    // Copies loop i's recorded cells (interleaved stereo) and its head position. Runs on the message
+    // thread while the tape may be playing: a torn sample here is harmless, and nothing allocates on
+    // the audio thread.
+    void copyLoop (int i, std::vector<float>& out, double& position) const
+    {
+        const auto& l = loops[(size_t) i];
+        out.clear();
+        if (l.data.empty())
+            return;
+        out.assign (l.data.begin(), l.data.begin() + (std::ptrdiff_t) l.length * 2);
+        position = l.position;
+    }
+
+    // Puts saved cells (recorded at `fromRate`) back on loop i, resampled to the current rate.
+    // The audio thread must be locked out while this runs.
+    void restoreLoop (int i, const std::vector<float>& cells, double position, double fromRate)
+    {
+        auto& l = loops[(size_t) i];
+        if (l.data.empty() || fromRate <= 0.0)
+            return;
+        const auto srcCells = (int) (cells.size() / 2);
+        const auto ratio = sampleRate / fromRate;
+        const auto cellsHere = std::clamp ((int) std::round (srcCells * ratio), 1, capacity - 4);
+        std::fill (l.data.begin(), l.data.end(), 0.0f);
+        resample (cells.data(), srcCells, l.data.data(), cellsHere, ratio);
+        l.length = cellsHere;
+        l.position = std::fmod (std::max (0.0, position * ratio), (double) cellsHere);
+        l.clearCursor = -1;
+    }
+
+    // Linear-interpolated stereo resampling of interleaved cells.
+    static void resample (const float* src, int srcCells, float* dst, int dstCells, double ratio) noexcept
+    {
+        if (src == nullptr || srcCells < 2)
+            return;
+        for (int i = 0; i < dstCells; ++i)
+        {
+            const auto pos = (double) i / ratio;
+            const auto i0 = (int) pos;
+            if (i0 >= srcCells - 1)
+                break;
+            const auto f = (float) (pos - i0);
+            for (int c = 0; c < 2; ++c)
+                dst[i * 2 + c] = src[i0 * 2 + c] + f * (src[(i0 + 1) * 2 + c] - src[i0 * 2 + c]);
+        }
+    }
 
     // Loop length scaling from TIME in LOOP mode: 0 -> x0.25, 0.5 -> x1, 1 -> x2.
     static double timeScale (float time) noexcept

@@ -160,6 +160,9 @@ tools/              Snapshot.cpp renders the UI to PNG (cmake --build build --ta
 presets/            factory presets as JSON, one folder per instrument type; built into the plugin
 ```
 
+## Your tape is saved with the project
+What's on the tape (loops A, B and C) is stored inside the Logic project whenever Logic saves, including autosave. A recording survives closing and reopening the project, recovery after a crash, and changing the audio interface or sample rate. Saving more often protects more of it. The tape costs roughly 4 MB per instance for typical loop lengths, up to about 35 MB with three 60-second loops.
+
 ## Recording the output in Logic
 A plugin can't write audio onto Logic's tracks itself. To capture a performance, including knob moves and the tape:
 - **Bounce in Place:** right-click the region and choose Bounce and Replace, or Bounce in Place.

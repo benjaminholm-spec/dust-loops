@@ -59,7 +59,9 @@ const juce::StringArray& PresetManager::factoryBanks()
 
 bool PresetManager::isStored (const juce::String& id)
 {
-    return ! (id.startsWith ("xport.") || id.endsWith (".clear") || id.endsWith (".rec") || id == "tape.freeze"
+    // Never stored: transport keys, CLEAR, which loops record (the arms and the REC key's A/B/C/All
+    // choice belong to the player, not the preset), FREEZE and the input level.
+    return ! (id.startsWith ("xport.") || id.endsWith (".clear") || id.endsWith (".rec") || id == "tape.select" || id == "tape.freeze"
               || id == "pedal.hall.freeze" || id == "global.inputGain");
 }
 

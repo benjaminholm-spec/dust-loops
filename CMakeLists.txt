@@ -11,7 +11,7 @@ set(DL_CODE_FX        Dlx1)          # AU subtype, effect
 set(DL_BUNDLE_ID      uk.co.dustplanetrecords.dustloops)
 # -------------------------------------------------------------------------------------------------
 
-project(DUST_LOOPS VERSION 0.6.0 LANGUAGES C CXX)
+project(DUST_LOOPS VERSION 0.6.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -110,7 +110,7 @@ dust_add_plugin(DustLoopsFX
 # ---- Unit tests: the real processor, driven offline ---------------------------------------------
 juce_add_console_app(DustLoopsTests PRODUCT_NAME "DustLoopsTests")
 target_sources(DustLoopsTests PRIVATE ${DL_SOURCES} tests/TestMain.cpp tests/TapeTests.cpp tests/PedalTests.cpp
-    tests/SynthTests.cpp tests/PresetTests.cpp)
+    tests/SynthTests.cpp tests/PresetTests.cpp tests/RobustnessTests.cpp)
 target_include_directories(DustLoopsTests PRIVATE Source)
 target_compile_definitions(DustLoopsTests PRIVATE ${DL_COMMON_DEFS}
     JucePlugin_Name="${DL_PRODUCT_NAME}" DUST_LOOPS_FX=0 JUCE_STANDALONE_APPLICATION=1)

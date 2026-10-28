@@ -30,7 +30,9 @@ public:
     bool acceptsMidi() const override { return true; } // the FX is a MIDI-controlled effect, for CC control
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 10.0; }
+    // The tape keeps playing with no input, so the tail never ends. Logic uses this to decide whether it
+    // may stop processing an idle track; a short tail made the tape freeze when the track was idle.
+    double getTailLengthSeconds() const override { return 24.0 * 3600.0; }
 
     // Logic's preset menu lists the factory presets.
     int getNumPrograms() override { return std::max (1, presets->numFactory()); }
@@ -68,6 +70,14 @@ private:
     void readTapeSettings();
     void readPedalSettings();
     void readSynthSettings();
+
+    struct SavedTape
+    {
+        double sampleRate = 0.0;
+        struct Loop { std::vector<float> cells; double position = 0.0; };
+        std::array<Loop, dust::TapeMachine::numLoops> loops;
+    };
+    void applyTape (const SavedTape&);
     void handleKeys();
 
     dust::SynthEngine synth;
@@ -126,6 +136,8 @@ private:
     // REC changes loop arm parameters, which must happen on the message thread.
     std::atomic<bool> recKeyPressed { false };
     std::atomic<int> pendingProgram { -1 };
+    std::atomic<bool> prepared { false };
+    std::unique_ptr<SavedTape> pendingTape; // a tape loaded before prepareToPlay
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DustLoopsProcessor)
 };

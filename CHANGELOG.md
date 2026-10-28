@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1 — Fixes: the tape is never lost (2026-10-28)
+- **Fixed: switching audio interfaces silenced the tape.** A new sample rate used to reallocate the tape blank. The recording is now resampled to the new rate and keeps playing at the same pitch. The echo buffer and head positions carry over too.
+- **Fixed: crashes when switching audio interfaces.** Re-preparing reallocated the tape and pedal buffers while Logic could still be rendering. `prepareToPlay` now locks the audio thread out, and the plugin outputs silence until it has been prepared, so processing before preparing can't crash.
+- **The tape is saved with the project.** The recorded part of each loop is stored in the plugin state as 16-bit stereo, in a new versioned state format, so a recording survives saving, reopening, autosave recovery after a crash, and loading at a different sample rate. Older projects still load. The ECHO buffer isn't saved.
+- **Fixed: the tape stopped responding after leaving Logic and coming back.** The plugin reported a 10-second tail, so Logic could stop processing the track once it went idle, and the tape and keys stopped responding. The tail is now effectively endless.
+- **Presets never change which loops record.** Besides the REC arms, the REC key's A/B/C/All choice is no longer stored in presets either. Loading a preset with TAPE + PEDALS used to reset it to All.
+- **New tests:** the tape survives sample-rate and block-size changes, the tape round-trips through the saved state (loaded before or after prepare), old state formats and garbage data load safely, odd host call orders don't crash, and no preset changes the arms or the REC key choice.
+
 ## 0.6.0 — Wide layout (2026-10-28)
 - **The plugin is now wide instead of tall** (1384 × 752 at 100 %, was 1000 × 1014), so it fits a 13" MacBook screen. The deck is on the left and the pedalboard is a full-height column on the right.
 - **The board is a two-column grid.** The signal snakes through it: left to right on the top row, right to left in the middle, left to right at the bottom. Cables between rows run down the side of the board, and IN and OUT move with the chain's ends.

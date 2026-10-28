@@ -118,6 +118,12 @@ bool DustLoopsProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
 
 void DustLoopsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    if (sampleRate <= 0.0)
+        return;
+
+    // Hosts can re-prepare while audio is running (e.g. when the audio interface changes). Everything
+    // below may reallocate, so keep the audio thread out until it's done.
+    const juce::ScopedLock lock (getCallbackLock());
     synth.prepare (sampleRate);
     const auto maxBlock = std::max (samplesPerBlock, 512);
     inputScratch.setSize (2, maxBlock);
@@ -138,6 +144,14 @@ void DustLoopsProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     initGain (masterGain, masterParam);
     initGain (inputGain, inputGainParam);
     initGain (synthGain, synthLevelParam);
+
+    // A tape loaded with the project before the plugin was prepared goes on now.
+    if (pendingTape != nullptr)
+    {
+        applyTape (*pendingTape);
+        pendingTape.reset();
+    }
+    prepared.store (true);
 }
 
 void DustLoopsProcessor::readTapeSettings()
@@ -312,6 +326,11 @@ void DustLoopsProcessor::timerCallback()
 void DustLoopsProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
+    if (! prepared.load())
+    {
+        buffer.clear();
+        return;
+    }
     const auto numSamples = buffer.getNumSamples();
     const auto numIn = getTotalNumInputChannels();
     const auto numOut = getTotalNumOutputChannels();
@@ -439,17 +458,82 @@ const juce::String DustLoopsProcessor::getProgramName (int index)
                                                          : juce::String ("Init");
 }
 
+// Saved state, version 2: a header, the parameters as JUCE's XML block, then the tape itself (each
+// loop's recorded cells as 16-bit stereo), so a recording survives saving, crashes and reloads.
+// Version 1 (just the XML block) still loads.
+namespace
+{
+constexpr juce::uint32 stateMagic = 0x32534c44; // "DLS2"
+constexpr int tapeFormatVersion = 1;
+} // namespace
+
 void DustLoopsProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     presets->writeState (state);
+    juce::MemoryBlock xmlBlock;
     if (auto xml = state.createXml())
-        copyXmlToBinary (*xml, destData);
+        copyXmlToBinary (*xml, xmlBlock);
+
+    juce::MemoryOutputStream out (destData, false);
+    out.writeInt ((int) stateMagic);
+    out.writeInt ((int) xmlBlock.getSize());
+    out.write (xmlBlock.getData(), xmlBlock.getSize());
+
+    // The tape (loop mode). Only the used part of each loop is stored.
+    if (tape.getSampleRate() <= 0.0)
+        return;
+    out.writeInt (tapeFormatVersion);
+    out.writeDouble (tape.getSampleRate());
+    out.writeInt (dust::TapeMachine::numLoops);
+    std::vector<float> cells;
+    for (int i = 0; i < dust::TapeMachine::numLoops; ++i)
+    {
+        double position = 0.0;
+        tape.copyLoop (i, cells, position);
+        out.writeInt ((int) cells.size() / 2);
+        out.writeDouble (position);
+        juce::HeapBlock<juce::int16> pcm (cells.size());
+        for (size_t k = 0; k < cells.size(); ++k)
+            pcm[k] = (juce::int16) juce::jlimit (-32767, 32767, (int) std::lrint (cells[k] * 32767.0f));
+        out.write (pcm.get(), cells.size() * sizeof (juce::int16));
+    }
 }
 
 void DustLoopsProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (auto xml = getXmlFromBinary (data, sizeInBytes))
+    const void* xmlData = data;
+    int xmlSize = sizeInBytes;
+    std::unique_ptr<SavedTape> savedTape;
+
+    juce::MemoryInputStream in (data, (size_t) sizeInBytes, false);
+    if (sizeInBytes > 8 && (juce::uint32) in.readInt() == stateMagic)
+    {
+        xmlSize = juce::jlimit (0, sizeInBytes - 8, in.readInt());
+        xmlData = static_cast<const char*> (data) + 8;
+        in.setPosition (8 + xmlSize);
+        if (in.getNumBytesRemaining() > 16 && in.readInt() == tapeFormatVersion)
+        {
+            savedTape = std::make_unique<SavedTape>();
+            savedTape->sampleRate = in.readDouble();
+            const auto loops = juce::jlimit (0, dust::TapeMachine::numLoops, in.readInt());
+            for (int i = 0; i < loops; ++i)
+            {
+                auto& loop = savedTape->loops[(size_t) i];
+                const auto cells = in.readInt();
+                loop.position = in.readDouble();
+                if (cells <= 0 || in.getNumBytesRemaining() < (juce::int64) cells * 2 * (juce::int64) sizeof (juce::int16))
+                    break;
+                juce::HeapBlock<juce::int16> pcm ((size_t) cells * 2);
+                in.read (pcm.get(), cells * 2 * (int) sizeof (juce::int16));
+                loop.cells.resize ((size_t) cells * 2);
+                for (size_t k = 0; k < loop.cells.size(); ++k)
+                    loop.cells[k] = (float) pcm[k] / 32767.0f;
+            }
+        }
+    }
+
+    if (auto xml = getXmlFromBinary (xmlData, xmlSize))
         if (xml->hasTagName (stateType))
         {
             auto state = juce::ValueTree::fromXml (*xml);
@@ -458,6 +542,25 @@ void DustLoopsProcessor::setStateInformation (const void* data, int sizeInBytes)
             setPedalOrder (order);
             presets->readState (state);
         }
+
+    if (savedTape != nullptr)
+    {
+        const juce::ScopedLock lock (getCallbackLock());
+        if (prepared.load())
+            applyTape (*savedTape);
+        else
+            pendingTape = std::move (savedTape); // goes on in prepareToPlay
+    }
+}
+
+void DustLoopsProcessor::applyTape (const SavedTape& saved)
+{
+    for (int i = 0; i < dust::TapeMachine::numLoops; ++i)
+    {
+        const auto& loop = saved.loops[(size_t) i];
+        if (! loop.cells.empty())
+            tape.restoreLoop (i, loop.cells, loop.position, saved.sampleRate);
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
