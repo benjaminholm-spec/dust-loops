@@ -11,8 +11,9 @@
 // The tape is modelled as cells moving past a head at the current tape speed. The head records and
 // plays at the same speed, so varispeed, reverse and tape-stop all fall out of the motion itself:
 // what was recorded at 0.5x plays an octave up at 1x, a stopping tape slides down in pitch and goes
-// quiet. Every time a cell passes the head it is played, worn (age, saturation, hiss, dropouts),
-// scaled by FEED, overdubbed with new input when armed, and limited, so feedback can never run away.
+// quiet. Every time a cell passes the head it is played, worn (age, saturation, dropouts) and scaled
+// by FEED, so an unarmed loop can only stay the same or fade. Only an armed (recording) loop gets
+// anything added: new input, record hiss and the pedals in the loop, limited so it can never run away.
 //
 // All memory is allocated in prepare(); process() never allocates, locks or does I/O.
 namespace dust
@@ -133,8 +134,8 @@ public:
         for (auto& l : loops) l.position = 0.0;
     }
 
-    // injectL/R (optional): extra signal re-recorded with the old tape on every pass (the pedals in the
-    // loop), scaled by FEED. returnL/R (optional): receives what the heads play, averaged, before levels.
+    // injectL/R (optional): extra signal re-recorded with the old tape on every pass of an armed loop (the
+    // pedals in the loop), scaled by FEED. returnL/R (optional): receives what the heads play, averaged, before levels.
     void process (const float* inL, const float* inR, float* outL, float* outR, int numSamples, const TapeSettings& s,
                   const float* injectL = nullptr, const float* injectR = nullptr,
                   float* returnL = nullptr, float* returnR = nullptr) noexcept
@@ -336,8 +337,9 @@ private:
         };
     }
 
-    // One pass of wear on a stereo cell: tape loses highs and lows, saturates, hisses and drops out.
-    void wearCell (WearState& w, float& l, float& r, const WearCoeffs& c) noexcept
+    // One pass of wear on a stereo cell: tape loses highs and lows, saturates and drops out. The record
+    // head adds hiss, so only a recording pass hisses.
+    void wearCell (WearState& w, float& l, float& r, const WearCoeffs& c, bool recording) noexcept
     {
         float* ch[] { &l, &r };
         for (int i = 0; i < 2; ++i)
@@ -349,7 +351,7 @@ private:
             x -= w.hp[i];
             if (c.drive > 1.001f)
                 x = fastTanh (x * c.drive) / c.drive;
-            if (c.hissRec > 0.0f)
+            if (recording && c.hissRec > 0.0f)
                 x += noise.bipolar() * c.hissRec;
         }
 
@@ -457,13 +459,13 @@ private:
                     const auto cell = (size_t) wrap (dir > 0 ? k0 + j : k0 - j + 1, len) * 2;
                     const auto frac = (float) j / (float) steps;
                     auto cl = l.data[cell], cr = l.data[cell + 1];
-                    wearCell (l.wear, cl, cr, wear);
-                    cl = cl * feed + injL;
-                    cr = cr * feed + injR;
+                    wearCell (l.wear, cl, cr, wear, ls.armed);
+                    cl *= feed;
+                    cr *= feed;
                     if (ls.armed)
                     {
-                        cl += prevIn[0] + frac * (inL - prevIn[0]);
-                        cr += prevIn[1] + frac * (inR - prevIn[1]);
+                        cl += injL + prevIn[0] + frac * (inL - prevIn[0]);
+                        cr += injR + prevIn[1] + frac * (inR - prevIn[1]);
                     }
                     l.limiter.process (cl, cr);
                     l.data[cell] = cl;
@@ -515,7 +517,7 @@ private:
         retL = fbL; retR = fbR;
         if (! s.freeze)
         {
-            wearCell (echoWear, fbL, fbR, wear);
+            wearCell (echoWear, fbL, fbR, wear, true);
             auto wl = inL + fbL * feed * 1.15f + injL; // a little extra so FEED at max can self-oscillate into the limiter
             auto wr = inR + fbR * feed * 1.15f + injR;
             echoLimiter.process (wl, wr);

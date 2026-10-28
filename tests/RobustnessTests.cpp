@@ -162,6 +162,46 @@ public:
             }
         }
 
+        beginTest ("with recording off, the tape never builds up, even at full FEED with every pedal in the loop");
+        {
+            DustLoopsProcessor p;
+            prepareAt (p, 48000.0);
+            setParam (p, ID::tape::mix, 1.0f);
+            setParam (p, ID::tape::feed, 1.0f);
+            for (int i = 0; i < 5; ++i)
+            {
+                setParam (p, ID::pedal::id (i, ID::pedal::on), 1.0f);
+                setParam (p, ID::pedal::id (i, ID::pedal::loop), 1.0f);
+                setParam (p, ID::pedal::id (i, ID::pedal::loopAmt), 1.0f);
+            }
+
+            // Record a chord on loop A only, then stop recording.
+            setParam (p, ID::loop::rec[1], 0.0f);
+            setParam (p, ID::loop::rec[2], 0.0f);
+            juce::AudioBuffer<float> buffer (2, blockSize);
+            juce::MidiBuffer midi;
+            for (int note : { 48, 55, 60, 64 })
+                midi.addEvent (juce::MidiMessage::noteOn (1, note, 0.6f), 0);
+            for (int b = 0; b < (int) (2.0 * 48000.0 / blockSize); ++b)
+            {
+                buffer.clear();
+                p.processBlock (buffer, midi);
+                midi.clear();
+            }
+            for (int note : { 48, 55, 60, 64 })
+                midi.addEvent (juce::MidiMessage::noteOff (1, note), 0);
+            buffer.clear();
+            p.processBlock (buffer, midi);
+            setParam (p, ID::loop::rec[0], 0.0f);
+
+            const auto start = tapeLevel (p, 48000.0, 10.0f);
+            for (int pass = 0; pass < 5; ++pass)
+                tapeLevel (p, 48000.0, 10.0f);
+            const auto later = tapeLevel (p, 48000.0, 10.0f);
+            expectGreaterThan (start, 0.001f, "nothing was recorded");
+            expectLessThan (later, start * 1.05f, "the tape got louder with recording off");
+        }
+
         beginTest ("presets never change which loops record");
         {
             DustLoopsProcessor p;

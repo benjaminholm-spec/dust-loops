@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2 (2026-10-28)
+- **Fixed: the tape built up louder and louder with recording off.** In LOOP mode, pedals with LOOP on (and the record hiss) were being added onto every loop on every pass, even loops that weren't recording. With FEED high this grew by about 22 dB in a minute until it hit the limiter.
+  - Now only an armed loop gets anything added: new input, record hiss and the in-loop pedals.
+  - A loop that isn't recording can only stay the same (FEED at max) or fade (lower FEED).
+  - ECHO mode is unchanged, because a tape echo always records.
+- New test: with recording off, FEED at max and every pedal in the loop at full amount, the tape level never rises.
+
 ## Distribution (2026-10-28)
 - **Download and install without building.** GitHub Releases now carry a zip with both plugins, a double-click **Install Dust Loops.command** and **Uninstall Dust Loops.command**, and a READ ME FIRST. The installer:
   - checks for Apple silicon and macOS 14 or newer
