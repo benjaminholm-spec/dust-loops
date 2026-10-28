@@ -1,7 +1,45 @@
 # Dust Loops
 
-A tape-loop drone instrument and effect for Logic Pro, from Dust Planet Records. It's a modded cassette
-player (QF-XL style: speed, time, feedback, mix) with three phasing tape loops and a small pedalboard.
+**A tape-loop drone instrument and effect for Logic Pro (Audio Unit, macOS).** It's a modded cassette deck with a synth on top and a pedalboard beside it. It's made for slowly evolving, worn, nostalgic ambient music in the spirit of Boards of Canada, Alessandro Cortini and Burial.
+
+Play a chord. It goes onto three tape loops of different lengths, so the repeats drift in and out of phase. Each pass wears the tape a little more, and the pedals inside the loop build up over time. Turn FEED up and it becomes a drone. Hit FREEZE and it holds forever.
+
+![Dust Loops: synth strip and cassette deck on the left, planet pedalboard on the right](docs/images/front.jpg)
+
+### What's inside
+- **Synth.** Three models:
+  - **DCO**: Juno-style, warm and steady, with BBD chorus.
+  - **VCO**: Prophet-style, two drifting oscillators with sync and poly-mod.
+  - **Ensemble**: a string machine.
+
+  It's 8-voice (or mono/legato with glide). Four macros cover the main moves: **Bloom**, **Motion** (on the mod wheel), **Warp** and **Haze**. **Atmos** adds vinyl crackle, rain and mains hum. The essentials sit on the front panel, and everything else is on an **Edit** page.
+- **Tape.**
+  - **Loops:** three loops (A/B/C) in sync with Logic's tempo or in free seconds, overdub on.
+  - **Echo:** an ECHO mode with three heads.
+  - **Speed:** -2× to +2× with inertia and reverse, plus FREEZE and the cassette transport keys.
+  - **Wear:** wow, flutter, hiss, saturation, age and dropouts, and three tape types.
+  - **Cassette window:** a clear loop cassette shows each loop's position as it goes round.
+- **Pedalboard.** Five pedals, each painted as a planet:
+  - **Dirt** (Mars)
+  - **Warble** (Neptune)
+  - **Drift** filter (Uranus)
+  - **Cloud** granular shimmer (Jupiter)
+  - **Hall** reverb (Saturn)
+
+  Drag them into any order, before or after the tape. Each has a **LOOP** switch that puts a copy inside the tape's feedback, so its effect grows on every pass.
+- **Presets.**
+  - **71 factory presets** grouped by instrument type (Pads, Keys, Plucks, Bells, Leads, Bass, Strings & Choirs, Drones, Textures, Utility), with favourites, search and your own user presets.
+  - **Presets change only the synth sound**, so you can layer different sounds on one tape without touching its settings or what's armed to record.
+- **Built to be safe in a session.**
+  - **Real-time safe:** no allocation, locks or file I/O on the audio thread.
+  - **Feedback can't run away**, and there's no NaN/inf output.
+  - **Tested:** unit tests for silence, maximum feedback, random-automation fuzzing, tempo sync and every preset.
+
+| Synth edit page | Preset browser |
+|---|---|
+| ![All synth settings](docs/images/edit.jpg) | ![Preset browser](docs/images/browser.jpg) |
+
+It's a personal project by Dust Planet Records, built with JUCE 9 and C++20. There's no installer: you build it from source with the script below.
 
 | Target | Format | AU type / codes | Use it on |
 |---|---|---|---|
@@ -115,6 +153,7 @@ Source/Presets/     PresetManager: factory + user presets, favourites, search, L
 Source/Plugin/      processor + editor (one class serves both plugins; DUST_LOOPS_FX switches the synth out)
 tests/              unit tests (run by build.sh, or: build/DustLoopsTests_artefacts/Release/DustLoopsTests)
 assets/             Dust Planet Records logo
+docs/images/        README screenshots (rendered with DustSnapshot)
 tools/              Snapshot.cpp renders the UI to PNG (cmake --build build --target DustSnapshot, or DustSnapshotFX)
                     Render.cpp renders every preset and reports levels (cmake --build build --target DustRender)
                     make_presets.py wrote the starting set of factory presets
