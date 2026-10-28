@@ -3,3 +3,4 @@
 /JUCE/
 .DS_Store
 *.wav
+/dist/

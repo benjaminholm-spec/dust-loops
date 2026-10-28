@@ -1,5 +1,15 @@
 # Changelog
 
+## Distribution (2026-10-28)
+- **Download and install without building.** GitHub Releases now carry a zip with both plugins, a double-click **Install Dust Loops.command** and **Uninstall Dust Loops.command**, and a READ ME FIRST. The installer:
+  - checks for Apple silicon and macOS 14 or newer
+  - copies both plugins into `~/Library/Audio/Plug-Ins/Components`
+  - clears the download quarantine and ad-hoc signs them for that Mac, since the plugin isn't notarised
+  - restarts the AU registrar
+- `tools/make_release.sh` builds, tests, validates and packages the zip, and refuses to package anything other than arm64.
+- **README:** an install guide for non-developers comes first, covering requirements (Apple silicon only, macOS 14+), getting past Gatekeeper and troubleshooting. Building from source moved below it.
+- **Licence:** the project is now open source under AGPLv3.
+
 ## 0.6.1 — Fixes: the tape is never lost (2026-10-28)
 - **Fixed: switching audio interfaces silenced the tape.** A new sample rate used to reallocate the tape blank. The recording is now resampled to the new rate and keeps playing at the same pitch. The echo buffer and head positions carry over too.
 - **Fixed: crashes when switching audio interfaces.** Re-preparing reallocated the tape and pedal buffers while Logic could still be rendering. `prepareToPlay` now locks the audio thread out, and the plugin outputs silence until it has been prepared, so processing before preparing can't crash.

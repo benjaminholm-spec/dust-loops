@@ -8,6 +8,39 @@ Play a chord. It goes onto three tape loops of different lengths, so the repeats
 
 ![Dust Loops: synth strip and cassette deck on the left, planet pedalboard on the right](docs/images/front.jpg)
 
+> **A free passion project, not a commercial product.** It's made with care and tested, but there's no
+> support team, no warranty and no update schedule. Things may change between versions.
+
+## Install (no Terminal needed)
+
+**You need:**
+- **A Mac with Apple silicon** (M1, M2, M3, M4 or later). **Intel Macs are not supported.** To check: Apple menu → **About This Mac**. It should say "Chip: Apple M…".
+- **macOS 14 Sonoma or newer.**
+- **Logic Pro**, or another app that loads Audio Unit plugins (GarageBand, MainStage, Ableton Live on macOS, …).
+
+**Steps:**
+1. Go to the [**Releases page**](https://github.com/benjaminholm-spec/dust-loops/releases/latest). Under **Assets**, download `Dust-Loops-…-macOS-AppleSilicon.zip`. Don't use the green **Code** button: that's the source code, not the plugin.
+2. Open the zip in your Downloads folder. You get a folder called **Dust Loops** plus the version number.
+3. Double-click **`Install Dust Loops.command`** inside it.
+4. **macOS will block it the first time.** The plugin isn't registered with Apple (that costs $99 a year, which doesn't fit a free project), so you have to allow it once:
+   - Click **Done** on the warning, then open **System Settings → Privacy & Security**.
+   - Scroll down to the message about *"Install Dust Loops.command"* and click **Open Anyway**. Enter your password if asked, then click **Open**.
+   - On macOS 14 you can instead right-click the installer, choose **Open**, then click **Open**.
+5. A Terminal window opens, installs both plugins and says **Done**. Close it.
+6. **Restart Logic Pro.** Then:
+   - **Instrument:** on a Software Instrument track, Instrument slot → **AU Instruments → Dust Planet Records → Dust Loops**.
+   - **Effect:** on an audio track, Audio FX slot → **Audio Units → Dust Planet Records → Dust Loops FX**.
+
+<details>
+<summary><b>Trouble?</b></summary>
+
+- **Logic doesn't list Dust Loops:** go to **Logic Pro → Settings → Plug-in Manager**, select the Dust Loops entries and click **Reset & Rescan Selection**.
+- **"Open Anyway" doesn't appear:** try opening the installer once more, then look again in Privacy & Security. The button only shows for about an hour after macOS blocks something.
+- **You'd rather use Terminal:** open Terminal, type `bash ` (with a space), drag `Install Dust Loops.command` into the window and press Return.
+- **To uninstall:** double-click **`Uninstall Dust Loops.command`** from the same folder. Your presets in `~/Music/Dust Loops` are kept.
+- **Updating:** download the new release and run its installer. It replaces the old version, and your presets and projects are kept.
+</details>
+
 ### What's inside
 - **Synth.** Three models:
   - **DCO**: Juno-style, warm and steady, with BBD chorus.
@@ -41,7 +74,7 @@ Play a chord. It goes onto three tape loops of different lengths, so the repeats
 |---|---|
 | ![All synth settings](docs/images/edit.jpg) | ![Preset browser](docs/images/browser.jpg) |
 
-It's a personal project by Dust Planet Records, built with JUCE 9 and C++20. There's no installer: you build it from source with the script below.
+Made by Dust Planet Records as a passion project, with JUCE 9 and C++20. It's free and open source under the [AGPLv3](LICENSE).
 
 **Like it?** Dust Loops is free. If it ends up on one of your tracks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/benjaminholm). ☕
 
@@ -50,12 +83,15 @@ It's a personal project by Dust Planet Records, built with JUCE 9 and C++20. The
 | **Dust Loops** | AU instrument + Standalone | `aumu Dlp1 Dplp` | Software instrument tracks (synth → tape → pedals; sidechain input feeds the tape) |
 | **Dust Loops FX** | AU MIDI-controlled effect | `aumf Dlx1 Dplp` | Audio tracks and buses (input → tape → pedals) |
 
-## Requirements
-- Apple Silicon Mac, macOS 14 or newer. Developed on macOS 14.3.1 with Logic Pro 11.0.1.
+## Build from source (for developers)
+Most people should use the [download above](#install-no-terminal-needed). Build it yourself if you want to change the code.
+
+**Requirements:**
+- Apple silicon Mac, macOS 14 or newer. Developed on macOS 14.3.1 with Logic Pro 11.0.1.
 - Xcode Command Line Tools (`xcode-select --install`), CMake 3.22 or newer, and Ninja (`brew install cmake ninja`).
 - JUCE 9.0.4. `build.sh` clones it into `JUCE/` automatically if that folder is missing. It isn't committed to git.
 
-## Build, install and validate
+### Build, install and validate
 ```bash
 ./build.sh
 ```
@@ -73,6 +109,8 @@ SKIP_AUVAL=1 ./build.sh       # quicker iteration
 CONFIG=Debug ./build.sh       # debug build in build-debug/
 open "build/DustLoops_artefacts/Release/Standalone/Dust Loops.app"
 ```
+
+To package a release zip like the one on the Releases page, run `tools/make_release.sh`. It writes `dist/Dust-Loops-<version>-macOS-AppleSilicon.zip`.
 
 If Logic doesn't show a new build: quit Logic, run `./build.sh`, and reopen Logic. If it still doesn't appear, go to **Logic Pro → Settings → Plug-in Manager**, select the Dust Loops entries and click **Reset & Rescan Selection**.
 
@@ -188,3 +226,8 @@ Change `DL_PRODUCT_NAME` (and the codes and bundle ID, if you like) at the top o
 
 ## Parameter IDs
 Every parameter ID is sectioned (`synth.cutoff`, `tape.feed`, `loopB.level`, `pedal.hall.mix`, ...) and versioned. IDs are never renamed or reused once they ship, so Logic automation and saved projects stay valid.
+
+## License
+Dust Loops is free software under the [GNU Affero General Public License v3](LICENSE). You may use it (including in your music, commercially or not), study it, change it and share it. If you share a modified version, it has to stay open source under the same licence. The sounds you make with it are yours.
+
+It's built on [JUCE](https://juce.com), which is used here under its AGPLv3 option.

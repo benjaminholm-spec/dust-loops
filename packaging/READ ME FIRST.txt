@@ -1,0 +1,34 @@
+DUST LOOPS - a tape-loop drone instrument and effect for Logic Pro
+A free passion project by Dust Planet Records.
+
+Needs: a Mac with Apple silicon (M1 or later; Intel Macs are not supported), macOS 14 Sonoma or newer,
+and Logic Pro (or another app that loads Audio Unit plugins).
+
+
+INSTALL (about a minute)
+
+1. Double-click "Install Dust Loops.command".
+
+2. macOS will probably refuse to open it the first time, because the plugin isn't registered with Apple
+   (that costs $99 a year, and this is a free passion project). To allow it:
+     - Open System Settings > Privacy & Security.
+     - Scroll down. Next to the message about "Install Dust Loops.command", click "Open Anyway".
+     - Confirm with your password if asked, then click "Open".
+   (On macOS 14 you can also right-click the installer, choose Open, then click Open.)
+
+3. A Terminal window opens, installs both plugins, and says "Done".
+
+4. Restart Logic Pro. You'll find it under:
+     Instrument slot > AU Instruments > Dust Planet Records > Dust Loops
+     Audio FX slot > Audio Units > Dust Planet Records > Dust Loops FX
+
+
+UNINSTALL
+
+Double-click "Uninstall Dust Loops.command" (allow it the same way as above).
+
+
+MORE
+
+Instructions, how to play it, and the source code: https://github.com/benjaminholm-spec/dust-loops
+If it ends up on one of your tracks, you can buy me a coffee: https://ko-fi.com/benjaminholm
