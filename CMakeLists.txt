@@ -11,7 +11,7 @@ set(DL_CODE_FX        Dlx1)          # AU subtype, effect
 set(DL_BUNDLE_ID      uk.co.dustplanetrecords.dustloops)
 # -------------------------------------------------------------------------------------------------
 
-project(DUST_LOOPS VERSION 0.5.0 LANGUAGES C CXX)
+project(DUST_LOOPS VERSION 0.6.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -127,6 +127,14 @@ target_compile_definitions(DustSnapshot PRIVATE ${DL_COMMON_DEFS}
     JucePlugin_Name="${DL_PRODUCT_NAME}" DUST_LOOPS_FX=0 JUCE_STANDALONE_APPLICATION=1 JUCE_MODAL_LOOPS_PERMITTED=1)
 target_link_libraries(DustSnapshot PRIVATE ${DL_COMMON_LIBS} juce::juce_recommended_config_flags)
 set_target_properties(DustSnapshot PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
+juce_add_console_app(DustSnapshotFX PRODUCT_NAME "DustSnapshotFX")
+target_sources(DustSnapshotFX PRIVATE ${DL_SOURCES} tools/Snapshot.cpp)
+target_include_directories(DustSnapshotFX PRIVATE Source)
+target_compile_definitions(DustSnapshotFX PRIVATE ${DL_COMMON_DEFS}
+    JucePlugin_Name="${DL_PRODUCT_NAME} FX" DUST_LOOPS_FX=1 JUCE_STANDALONE_APPLICATION=1 JUCE_MODAL_LOOPS_PERMITTED=1)
+target_link_libraries(DustSnapshotFX PRIVATE ${DL_COMMON_LIBS} juce::juce_recommended_config_flags)
+set_target_properties(DustSnapshotFX PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 # ---- Preset render tool: renders every factory preset to WAV and reports levels -------------------
 #   cmake --build build --target DustRender && build/DustRender_artefacts/Release/DustRender [--trims tools/preset_trims.json]

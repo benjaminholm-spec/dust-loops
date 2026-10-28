@@ -10,8 +10,9 @@
 
 class DustLoopsProcessor;
 
-// The whole plugin face at its logical size: top strip, synth strip (instrument only), the deck, and the
-// pedalboard below. The editor scales it for 75-200 %.
+// The whole plugin face at its logical size, laid out wide for laptop screens: on the left the top
+// strip, the synth strip (a nameplate in the FX) and the deck; on the right, the full-height pedalboard.
+// The editor scales it for 75-200 %.
 //   Top strip : logo, preset display with arrows, SPEED and TEMPO readouts, INPUT/SYNTH levels, BACK.
 //   Synth     : model, the four macros, cutoff/resonance/attack/release, Atmos, EDIT.
 //   Deck area : one of four views - the deck front (knobs on the grille, FREEZE, VU, loop LEDs,
@@ -19,10 +20,10 @@ class DustLoopsProcessor;
 //               or the preset browser.
 namespace deck
 {
-constexpr int logicalWidth = 1000, topHeight = 70, frontHeight = 570;
-constexpr int synthHeight = dust::kIsFx ? 0 : SynthStrip::height;
+constexpr int deckWidth = 1000, topHeight = 70, frontHeight = 570;
+constexpr int synthHeight = SynthStrip::height;
 constexpr int deckTop = topHeight + synthHeight, deckHeight = deckTop + frontHeight;
-constexpr int logicalHeight = deckHeight + PedalBoardView::height;
+constexpr int logicalWidth = deckWidth + PedalBoardView::width, logicalHeight = deckHeight;
 
 class FrontPanel : public juce::Component
 {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 — Wide layout (2026-10-28)
+- **The plugin is now wide instead of tall** (1384 × 752 at 100 %, was 1000 × 1014), so it fits a 13" MacBook screen. The deck is on the left and the pedalboard is a full-height column on the right.
+- **The board is a two-column grid.** The signal snakes through it: left to right on the top row, right to left in the middle, left to right at the bottom. Cables between rows run down the side of the board, and IN and OUT move with the chain's ends.
+- **Pedals can be dragged anywhere on the board.** The new order follows their position along the snake, and the cables follow a dragged pedal and animate into place.
+- **FX version:** a DUST LOOPS FX nameplate fills the space where the instrument has its synth strip, so both versions share one layout.
+- The editor now limits its opening size by screen width as well as height.
+- Added a `DustSnapshotFX` target to render the FX UI.
+
 ## 0.5.0 — Planet pedals, new logo, presets by instrument type (2026-10-28)
 - **Planet pedals.** Each pedal is painted as a planet, with its name printed by the footswitch:
   - DIRT is Mars (rust, dark plains, craters, a polar cap)

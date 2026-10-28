@@ -9,7 +9,9 @@ using namespace juce;
 
 namespace
 {
-constexpr int pedalWidth = 150, tapeWidth = 72, itemHeight = 220, itemTop = 34;
+constexpr int pedalWidth = 150, tapeWidth = 72, itemHeight = 220;
+// The grid: 2 columns x 3 rows, with room above each row for the cables.
+constexpr int cols = 2, rows = 3, sideMargin = 22, cellWidth = 170, topPad = 12, cableRoom = 26, cellHeight = itemHeight + cableRoom;
 
 struct KnobDef { const char* id; const char* label; const char* hint; };
 
@@ -254,13 +256,36 @@ void drawPlanetSurface (Graphics& g, Rectangle<float> a, Planet planet, int seed
     g.fillRect (a);
 }
 
+void strokeCable (Graphics& g, const Path& cable, Colour colour);
+void drawPlugs (Graphics& g, Point<float> from, Point<float> to, Colour colour);
+
 // Right-angle plug on a top-mounted jack, with the cable leaving upwards.
 void drawCable (Graphics& g, Point<float> from, Point<float> to, Colour colour)
 {
-    const auto lift = 26.0f + std::abs (to.x - from.x) * 0.04f;
+    const auto lift = 12.0f + std::abs (to.x - from.x) * 0.02f;
     Path cable;
     cable.startNewSubPath (from.translated (0.0f, -10.0f));
     cable.cubicTo (from.x, from.y - 10.0f - lift, to.x, to.y - 10.0f - lift, to.x, to.y - 10.0f);
+    strokeCable (g, cable, colour);
+    drawPlugs (g, from, to, colour);
+}
+
+// From the end of one row down the side of the board to the start of the next.
+void drawRowCable (Graphics& g, Point<float> from, Point<float> to, float sideX, Colour colour)
+{
+    Path route;
+    route.startNewSubPath (from.translated (0.0f, -10.0f));
+    route.lineTo (from.x, from.y - 19.0f);
+    route.lineTo (sideX, from.y - 19.0f);
+    route.lineTo (sideX, to.y - 19.0f);
+    route.lineTo (to.x, to.y - 19.0f);
+    route.lineTo (to.x, to.y - 10.0f);
+    strokeCable (g, route.createPathWithRoundedCorners (9.0f), colour);
+    drawPlugs (g, from, to, colour);
+}
+
+void strokeCable (Graphics& g, const Path& cable, Colour colour)
+{
     g.setColour (Colours::black.withAlpha (0.45f));
     g.strokePath (cable, PathStrokeType (6.5f, PathStrokeType::curved, PathStrokeType::rounded), AffineTransform::translation (1.5f, 3.0f));
     g.setColour (colour.darker (0.5f));
@@ -269,7 +294,10 @@ void drawCable (Graphics& g, Point<float> from, Point<float> to, Colour colour)
     g.strokePath (cable, PathStrokeType (3.8f, PathStrokeType::curved, PathStrokeType::rounded));
     g.setColour (Colours::white.withAlpha (0.18f));
     g.strokePath (cable, PathStrokeType (1.0f, PathStrokeType::curved, PathStrokeType::rounded), AffineTransform::translation (-0.8f, -0.8f));
+}
 
+void drawPlugs (Graphics& g, Point<float> from, Point<float> to, Colour colour)
+{
     for (auto p : { from, to })
     {
         const Rectangle<float> plug (p.x - 4.5f, p.y - 14.0f, 9.0f, 13.0f);
@@ -322,7 +350,7 @@ void Footswitch::paint (Graphics& g)
 BoardItem::BoardItem (PedalBoardView& b, int s) : slot (s), board (b) {}
 
 void BoardItem::mouseDown (const MouseEvent&) { board.dragStarted (slot); }
-void BoardItem::mouseDrag (const MouseEvent& e) { board.dragMoved (slot, e.getDistanceFromDragStartX()); }
+void BoardItem::mouseDrag (const MouseEvent& e) { board.dragMoved (slot, e.getOffsetFromDragStart()); }
 void BoardItem::mouseUp (const MouseEvent&) { board.dragEnded (slot); }
 
 //==============================================================================
@@ -375,11 +403,11 @@ PedalView::PedalView (PedalBoardView& b, APVTS& state, int pedalIndex, std::func
 void PedalView::resized()
 {
     led->setBounds (getWidth() / 2 - 8, 6, 16, 16);
-    const int cols[] { 40, 110 };
+    const int knobColumns[] { 40, 110 };
     for (size_t i = 0; i < knobs.size(); ++i)
     {
         const auto row = (int) i / 2;
-        const auto cx = knobs.size() == 3 && i == 2 ? getWidth() / 2 : cols[i % 2];
+        const auto cx = knobs.size() == 3 && i == 2 ? getWidth() / 2 : knobColumns[i % 2];
         knobs[i]->setBounds (cx - 34, 40 + row * 60, 68, 62);
     }
     loopButton->setBounds (8, 164, 52, 22);
@@ -467,21 +495,50 @@ void PedalBoardView::resized()
     layout (false);
 }
 
+Rectangle<int> PedalBoardView::boundsForPosition (int position, int slot) const
+{
+    const auto row = position / cols;
+    auto col = position % cols;
+    if (row % 2 == 1)
+        col = cols - 1 - col; // odd rows run right to left
+    const auto w = slot == dust::PedalBoard::tapeSlot ? tapeWidth : pedalWidth;
+    const auto cx = sideMargin + col * cellWidth + cellWidth / 2;
+    return { cx - w / 2, topPad + row * cellHeight + cableRoom, w, itemHeight };
+}
+
+float PedalBoardView::positionKey (Rectangle<int> b) const
+{
+    const auto c = b.getCentre().toFloat();
+    const auto row = jlimit (0, rows - 1, (int) ((c.y - (float) topPad) / (float) cellHeight));
+    const auto col = jlimit (0.0f, (float) cols - 0.001f, (c.x - (float) sideMargin) / (float) cellWidth);
+    return (float) (row * cols) + (row % 2 == 1 ? (float) cols - col : col);
+}
+
+int PedalBoardView::rowOf (const BoardItem& item) const
+{
+    return jlimit (0, rows - 1, (int) (positionKey (item.getBounds()) / (float) cols));
+}
+
+std::array<BoardItem*, 6> PedalBoardView::itemsInChainOrder() const
+{
+    std::array<BoardItem*, 6> sorted {};
+    for (size_t i = 0; i < sorted.size(); ++i) sorted[i] = items[i].get();
+    std::sort (sorted.begin(), sorted.end(), [this] (auto* a, auto* b) { return positionKey (a->getBounds()) < positionKey (b->getBounds()); });
+    return sorted;
+}
+
 void PedalBoardView::layout (bool animate)
 {
     const auto order = currentOrder();
-    const auto gap = (getWidth() - 5 * pedalWidth - tapeWidth) / 7;
-    int x = gap;
-    for (auto slot : order)
+    for (size_t pos = 0; pos < order.size(); ++pos)
     {
-        const auto w = slot == dust::PedalBoard::tapeSlot ? tapeWidth : pedalWidth;
-        const Rectangle<int> target (x, itemTop, w, itemHeight);
+        const auto slot = order[pos];
+        const auto target = boundsForPosition ((int) pos, slot);
         auto& item = *items[(size_t) slot];
         if (animate)
             Desktop::getInstance().getAnimator().animateComponent (&item, target, 1.0f, 180, false, 0.3, 0.0);
         else
             item.setBounds (target);
-        x += w + gap;
     }
     repaint();
 }
@@ -489,15 +546,17 @@ void PedalBoardView::layout (bool animate)
 void PedalBoardView::dragStarted (int slot)
 {
     dragging = slot;
-    dragStartX = items[(size_t) slot]->getX();
+    dragStart = items[(size_t) slot]->getPosition();
     items[(size_t) slot]->toFront (false);
 }
 
-void PedalBoardView::dragMoved (int slot, int deltaX)
+void PedalBoardView::dragMoved (int slot, Point<int> delta)
 {
     if (slot != dragging) return;
     auto& item = *items[(size_t) slot];
-    item.setTopLeftPosition (jlimit (0, getWidth() - item.getWidth(), dragStartX + deltaX), itemTop - 6); // lifted while held
+    const auto p = dragStart + delta;
+    item.setTopLeftPosition (jlimit (0, getWidth() - item.getWidth(), p.x),
+                             jlimit (0, getHeight() - item.getHeight(), p.y - 6)); // lifted while held
     repaint();
 }
 
@@ -506,19 +565,25 @@ void PedalBoardView::dragEnded (int slot)
     if (slot != dragging) return;
     dragging = -1;
 
-    // New order: everything sorted by where it is now.
+    // New order: everything sorted by where it now sits along the snake.
     std::array<int, 6> order {};
-    for (size_t i = 0; i < order.size(); ++i) order[i] = (int) i;
-    std::sort (order.begin(), order.end(), [this] (int a, int b)
-               { return items[(size_t) a]->getBounds().getCentreX() < items[(size_t) b]->getBounds().getCentreX(); });
+    const auto sorted = itemsInChainOrder();
+    for (size_t i = 0; i < order.size(); ++i) order[i] = sorted[i]->slot;
     processor.setPedalOrder (order);
     layout (true);
 }
 
 void PedalBoardView::timerCallback()
 {
-    items[5]->repaint (0, 0, items[5]->getWidth(), 30);
-    repaint (0, 0, getWidth(), itemTop); // cables follow animations
+    items[5]->repaint (0, 0, items[5]->getWidth(), 30); // the TAPE block's running light
+
+    // Cables follow pedals while they animate into place.
+    bool moving = false;
+    for (auto& item : items)
+        moving = moving || Desktop::getInstance().getAnimator().isAnimating (item.get());
+    if (moving || wasMoving)
+        repaint();
+    wasMoving = moving;
 }
 
 void PedalBoardView::paint (Graphics& g)
@@ -532,20 +597,16 @@ void PedalBoardView::paint (Graphics& g)
         Graphics gi (background);
         gi.addTransform (AffineTransform::scale (scale));
         const auto b = getLocalBounds().toFloat();
-        // A pedalboard: dark ribbed surface between two aluminium rails
+        // A pedalboard: dark ribbed surface between two aluminium rails, standing beside the deck
         gi.setColour (Colour (0xff0b0b0c).withAlpha (0.85f));
-        gi.fillRect (b.withTrimmedTop (6.0f).withTrimmedBottom (6.0f));
-        for (float y = 10.0f; y < b.getBottom() - 8.0f; y += 4.0f)
+        gi.fillRect (b.withTrimmedLeft (6.0f).withTrimmedRight (6.0f));
+        for (float y = 4.0f; y < b.getBottom(); y += 4.0f)
         {
             gi.setColour (Colours::white.withAlpha (0.018f));
-            gi.drawLine (0.0f, y, b.getRight(), y, 1.0f);
+            gi.drawLine (6.0f, y, b.getRight() - 6.0f, y, 1.0f);
         }
-        for (auto y : { 0.0f, b.getBottom() - 6.0f })
-            Art::drawRail (gi, { 0.0f, y, b.getWidth(), 6.0f }, (uint32) y + 5u);
-        gi.setFont (Art::silk (11.0f));
-        gi.setColour (Art::Colours::silkDim);
-        gi.drawText ("IN", Rectangle<float> (4.0f, 28.0f, 30.0f, 14.0f), Justification::centredLeft);
-        gi.drawText ("OUT", Rectangle<float> (b.getRight() - 34.0f, 28.0f, 30.0f, 14.0f), Justification::centredRight);
+        for (auto x : { 0.0f, b.getRight() - 6.0f })
+            Art::drawRail (gi, { x, 0.0f, 6.0f, b.getHeight() }, (uint32) x + 5u);
     }
     g.drawImage (background, getLocalBounds().toFloat());
 }
@@ -553,17 +614,34 @@ void PedalBoardView::paint (Graphics& g)
 void PedalBoardView::paintOverChildren (Graphics& g)
 {
     // Cables between neighbours in their current on-screen order (so they follow a dragged pedal).
-    std::array<BoardItem*, 6> sorted {};
-    for (size_t i = 0; i < sorted.size(); ++i) sorted[i] = items[i].get();
-    std::sort (sorted.begin(), sorted.end(), [] (auto* a, auto* b) { return a->getBounds().getCentreX() < b->getBounds().getCentreX(); });
-
+    const auto sorted = itemsInChainOrder();
     const auto inset = [] (BoardItem* item) { return item->slot == dust::PedalBoard::tapeSlot ? 16.0f : 20.0f; };
-    const auto inJack = [&] (BoardItem* item) { return Point<float> ((float) item->getX() + inset (item), (float) item->getY() + 3.0f); };
-    const auto outJack = [&] (BoardItem* item) { return Point<float> ((float) item->getRight() - inset (item), (float) item->getY() + 3.0f); };
+    const auto leftJack = [&] (BoardItem* item) { return Point<float> ((float) item->getX() + inset (item), (float) item->getY() + 3.0f); };
+    const auto rightJack = [&] (BoardItem* item) { return Point<float> ((float) item->getRight() - inset (item), (float) item->getY() + 3.0f); };
+    const auto goesRight = [&] (BoardItem* item) { return rowOf (*item) % 2 == 0; };
+    const auto inJack = [&] (BoardItem* item) { return goesRight (item) ? leftJack (item) : rightJack (item); };
+    const auto outJack = [&] (BoardItem* item) { return goesRight (item) ? rightJack (item) : leftJack (item); };
+    const auto leftSide = 13.0f, rightSide = (float) getWidth() - 13.0f;
 
-    drawCable (g, { 12.0f, 26.0f }, inJack (sorted.front()), cableColours[0]);
+    // IN at the top left; OUT beside wherever the chain ends.
+    const auto first = sorted.front(), last = sorted.back();
+    const Point<float> inTerminal { leftSide, inJack (first).y + 34.0f }; // low enough for its label to fit above
+    const Point<float> outTerminal { goesRight (last) ? rightSide : leftSide, outJack (last).y - 14.0f };
+    drawCable (g, inTerminal, inJack (first), cableColours[0]);
     for (size_t i = 0; i + 1 < sorted.size(); ++i)
-        drawCable (g, outJack (sorted[i]), inJack (sorted[i + 1]), cableColours[(i + 1) % std::size (cableColours)]);
-    drawCable (g, outJack (sorted.back()), { (float) getWidth() - 12.0f, 26.0f }, cableColours[6]);
+    {
+        const auto colour = cableColours[(i + 1) % std::size (cableColours)];
+        if (rowOf (*sorted[i]) == rowOf (*sorted[i + 1]))
+            drawCable (g, outJack (sorted[i]), inJack (sorted[i + 1]), colour);
+        else
+            drawRowCable (g, outJack (sorted[i]), inJack (sorted[i + 1]), goesRight (sorted[i]) ? rightSide : leftSide, colour);
+    }
+    drawCable (g, outJack (last), outTerminal, cableColours[6]);
+
+    g.setFont (Art::silk (11.0f));
+    g.setColour (Art::Colours::silkDim);
+    g.drawText ("IN", Rectangle<float> (inTerminal.x - 8.0f, inTerminal.y - 28.0f, 30.0f, 14.0f), Justification::centredLeft);
+    const auto outBox = Rectangle<float> (outTerminal.x - 15.0f, outTerminal.y - 28.0f, 30.0f, 14.0f);
+    g.drawText ("OUT", outBox.translated (goesRight (last) ? -6.0f : 6.0f, 0.0f), Justification::centred);
 }
 } // namespace deck

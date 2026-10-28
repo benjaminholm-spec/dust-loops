@@ -474,14 +474,14 @@ void DeckContent::resized()
     backButton.setBounds (918, 22, 66, 28);
 
     if (synthStrip != nullptr)
-        synthStrip->setBounds (0, topHeight, logicalWidth, synthHeight);
-    const Rectangle<int> deckArea (0, deckTop, logicalWidth, frontHeight);
+        synthStrip->setBounds (0, topHeight, deckWidth, synthHeight);
+    const Rectangle<int> deckArea (0, deckTop, deckWidth, frontHeight);
     front.setBounds (deckArea);
     back.setBounds (deckArea);
     browser.setBounds (deckArea);
     if (synthEdit != nullptr)
         synthEdit->setBounds (deckArea);
-    board.setBounds (0, deckHeight, logicalWidth, PedalBoardView::height);
+    board.setBounds (deckWidth, 0, PedalBoardView::width, logicalHeight);
     showView (view);
 }
 
@@ -502,10 +502,14 @@ void DeckContent::updatePresetDisplay()
 
 void DeckContent::paint (Graphics& g)
 {
-    background.draw (g, { 0, 0, logicalWidth, topHeight }, [] (Image& image, float scale)
+    // The top strip, and in the FX (no synth) a nameplate where the synth strip would be.
+    background.draw (g, { 0, 0, deckWidth, deckTop }, [] (Image& image, float scale)
     {
-        const Rectangle<int> strip (0, 0, logicalWidth, topHeight);
+        const Rectangle<int> strip (0, 0, deckWidth, topHeight), plate (0, topHeight, deckWidth, synthHeight);
         paintPanel (image, scale, strip, 0x70b);
+        if constexpr (dust::kIsFx)
+            paintPanel (image, scale, plate, 0xf1a7);
+
         Graphics gi (image);
         gi.addTransform (AffineTransform::scale (scale));
         Art::drawPanelWear (gi, strip.toFloat(), 0x1234);
@@ -516,7 +520,19 @@ void DeckContent::paint (Graphics& g)
         gi.drawText (String (dust::kProductName).toUpperCase(), Rectangle<float> (92.0f, 18.0f, 130.0f, 34.0f),
                      Justification::centredLeft, true);
         gi.setColour (Colours::black.withAlpha (0.7f));
-        gi.fillRect (0.0f, (float) topHeight - 2.0f, (float) logicalWidth, 2.0f);
+        gi.fillRect (0.0f, (float) topHeight - 2.0f, (float) deckWidth, 2.0f);
+
+        if constexpr (dust::kIsFx)
+        {
+            Art::drawPanelWear (gi, plate.toFloat(), 0xf1a8);
+            const auto badge = plate.toFloat().withSizeKeepingCentre (420.0f, 64.0f);
+            Art::drawRecess (gi, badge, 6.0f);
+            gi.setColour (Colours::white.withAlpha (0.85f));
+            gi.setFont (Art::brand (30.0f));
+            gi.drawText (String (dust::kProductName).toUpperCase() + " FX", badge, Justification::centred, false);
+            gi.setColour (Colours::black.withAlpha (0.7f));
+            gi.fillRect (0.0f, (float) deckTop - 2.0f, (float) deckWidth, 2.0f);
+        }
     });
 }
 

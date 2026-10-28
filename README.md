@@ -35,7 +35,7 @@ open "build/DustLoops_artefacts/Release/Standalone/Dust Loops.app"
 If Logic doesn't show a new build: quit Logic, run `./build.sh`, and reopen Logic. If it still doesn't appear, go to **Logic Pro → Settings → Plug-in Manager**, select the Dust Loops entries and click **Reset & Rescan Selection**.
 
 ## How to play it
-The plugin has a synth strip at the top, a cassette deck in the middle and a pedalboard at the bottom. Hover over any control and the hint strip tells you what it does.
+The plugin is laid out wide: the synth strip and the cassette deck on the left, the pedalboard on the right. Hover over any control and the hint strip tells you what it does.
 
 **Presets first.** The red display at the top shows the current preset. Click ◀ ▶ to step through presets, or click the display to open the browser:
 - instrument types on the left: Pads, Keys, Plucks, Bells, Leads, Bass, Strings & Choirs, Drones, Textures, Utility, plus All, Favourites and User
@@ -77,11 +77,12 @@ Logic's own preset menu (top of the plugin window) also lists the factory preset
    - tape type, wow, flutter, hiss, saturation, age and dropouts
    - inertia, brake time and master level
 
-10. **Pedals** (under the deck), each painted as a planet: DIRT is Mars, WARBLE Neptune, DRIFT Uranus, CLOUD Jupiter and HALL Saturn. Stomp the footswitch to turn a pedal on.
+10. **Pedals** (to the right of the deck), each painted as a planet: DIRT is Mars, WARBLE Neptune, DRIFT Uranus, CLOUD Jupiter and HALL Saturn. Stomp the footswitch to turn a pedal on.
     - **LOOP** puts a copy of the pedal inside the tape loop, so its effect builds up on every pass. That's where the drones come from. The little trim next to it sets how much.
-    - Drag a pedal by its body to move it. Pedals left of the **TAPE DECK** block go onto the tape; pedals right of it colour what comes off it.
+    - The signal snakes through the board: left to right along the top row, right to left along the middle row, left to right along the bottom row, from IN to OUT. The cables show the route.
+    - Drag a pedal by its body to any spot to move it. Pedals before the **TAPE DECK** block go onto the tape; pedals after it colour what comes off it.
 
-The window can be resized from 75 % to 200 % by dragging its corner, and remembers its size.
+The window is 1384 × 752 at 100 %, sized to fit a 13" MacBook screen. You can resize it from 75 % to 200 % by dragging its corner, and it remembers its size. It never opens bigger than the screen.
 
 ## Using it in Logic
 
@@ -114,7 +115,7 @@ Source/Presets/     PresetManager: factory + user presets, favourites, search, L
 Source/Plugin/      processor + editor (one class serves both plugins; DUST_LOOPS_FX switches the synth out)
 tests/              unit tests (run by build.sh, or: build/DustLoopsTests_artefacts/Release/DustLoopsTests)
 assets/             Dust Planet Records logo
-tools/              Snapshot.cpp renders the UI to PNG (cmake --build build --target DustSnapshot)
+tools/              Snapshot.cpp renders the UI to PNG (cmake --build build --target DustSnapshot, or DustSnapshotFX)
                     Render.cpp renders every preset and reports levels (cmake --build build --target DustRender)
                     make_presets.py wrote the starting set of factory presets
 presets/            factory presets as JSON, one folder per instrument type; built into the plugin
