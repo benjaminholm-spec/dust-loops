@@ -16,7 +16,7 @@ class PresetManager : private juce::AudioProcessorValueTreeState::Listener
 public:
     struct Preset
     {
-        juce::String name, bank, description;
+        juce::String name, bank, mood, description; // bank = category (Pads, Keys, ...) or "User"
         juce::var data;
         juce::File file; // user presets only
         bool isFactory = true;
@@ -24,7 +24,7 @@ public:
     };
 
     static constexpr auto userBank = "User";
-    static const juce::StringArray& factoryBanks();
+    static const juce::StringArray& factoryBanks(); // the instrument categories, in browser order
 
     PresetManager (juce::AudioProcessorValueTreeState&, std::function<juce::String()> getOrder,
                    std::function<void (const juce::String&)> setOrder);
@@ -51,7 +51,7 @@ public:
     bool isFavourite (int index) const;
     void toggleFavourite (int index);
 
-    // Indices matching a bank ("" = all, "Favourites", or a bank name) and a search text.
+    // Indices matching a category ("" = all, "Favourites", or a category / "User") and a search text.
     std::vector<int> filter (const juce::String& bank, const juce::String& search) const;
 
     // Remembers which preset a saved project was using.

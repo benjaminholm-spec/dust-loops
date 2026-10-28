@@ -1,6 +1,7 @@
 {
   "name": "Frippertronics",
-  "bank": "Utility",
+  "category": "Utility",
+  "mood": "Utility",
   "description": "Two long free loops at high feedback on clean tape. Layer slowly; it builds forever.",
   "pedalOrder": "dirt,warble,drift,tape,cloud,hall",
   "params": {

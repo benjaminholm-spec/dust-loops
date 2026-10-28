@@ -47,8 +47,10 @@ private:
     std::unique_ptr<Knob> loopAmount, extraKnob;
     std::unique_ptr<SmallButton> loopButton, extraButton;
     std::unique_ptr<Footswitch> footswitch;
-    juce::String title;
+    juce::String title, planetName;
     juce::Colour paint1;
+    int planet = 0;
+    CachedBackground background;
 };
 
 class TapeBlockView : public BoardItem

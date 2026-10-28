@@ -1,6 +1,7 @@
 {
   "name": "Init DCO",
-  "bank": "Utility",
+  "category": "Utility",
+  "mood": "Utility",
   "description": "A plain DCO-Poly patch with a clean tape. Start here to build your own.",
   "pedalOrder": "dirt,warble,drift,tape,cloud,hall",
   "params": {

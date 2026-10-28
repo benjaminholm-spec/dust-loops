@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0 — Planet pedals, new logo, presets by instrument type (2026-10-28)
+- **Planet pedals.** Each pedal is painted as a planet, with its name printed by the footswitch:
+  - DIRT is Mars (rust, dark plains, craters, a polar cap)
+  - WARBLE is Neptune (deep blue bands, bright streaks, a dark storm)
+  - DRIFT is Uranus (pale teal, with its rings standing on end)
+  - CLOUD is Jupiter (cream and brown bands, the Great Red Spot)
+  - HALL is Saturn (gold bands, crossed by rings with the Cassini gap)
+  Every face is shaded like a sphere and dimmed so the controls stay readable. The pedal faces are now cached.
+- **Logo:** the top-left logo is now the white DPR monogram followed by DUST LOOPS (from the product name constant).
+- **Presets are now grouped by instrument type:** Pads, Keys, Plucks, Bells, Leads, Bass, Strings & Choirs, Drones, Textures and Utility. The old collections remain as each preset's searchable mood. Preset JSON uses `category` and `mood` (`bank` is still read).
+- **9 new presets** (71 in total): Kalimba Dust, Static Harp, Raindrop Pluck, Sync Lead in Fog, Whistling Wire, Tape Sub, Rubber Bass, Cellar Bass and Rhodes in the Attic. All are level-matched.
+- **README:** added how to record Dust Loops' output in Logic.
+
 ## 0.4.1 — Presets leave the tape alone; clear loop cassette (2026-10-27)
 - **Presets now change only the synth sound** (`synth.*` and `atmos.*`). The tape settings, loops, pedals and pedal order stay as they are, so you can layer different sounds on one tape.
 - **Fixed:** loading a preset could re-arm the loops (REC isn't stored in presets, so it fell back to its default, which is armed). REC arms are now never stored or changed by presets.

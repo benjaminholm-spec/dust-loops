@@ -1,6 +1,7 @@
 {
   "name": "Dry Synth",
-  "bank": "Utility",
+  "category": "Utility",
+  "mood": "Utility",
   "description": "The synth on its own: the tape is mixed out. Turn MIX up to bring the loops in.",
   "pedalOrder": "dirt,warble,drift,tape,cloud,hall",
   "params": {

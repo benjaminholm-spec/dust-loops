@@ -509,7 +509,12 @@ void DeckContent::paint (Graphics& g)
         Graphics gi (image);
         gi.addTransform (AffineTransform::scale (scale));
         Art::drawPanelWear (gi, strip.toFloat(), 0x1234);
-        Art::drawPrintedImage (gi, Art::logoHorizontal(), { 20.0f, 18.0f, 190.0f, 32.0f }, Art::Colours::brandGold);
+        // White DPR monogram, then the instrument's name
+        Art::drawPrintedImage (gi, Art::logoMonogram(), { 18.0f, 18.0f, 66.0f, 34.0f }, Colours::white.withAlpha (0.92f));
+        gi.setColour (Colours::white.withAlpha (0.92f));
+        gi.setFont (Art::brand (20.0f));
+        gi.drawText (String (dust::kProductName).toUpperCase(), Rectangle<float> (92.0f, 18.0f, 130.0f, 34.0f),
+                     Justification::centredLeft, true);
         gi.setColour (Colours::black.withAlpha (0.7f));
         gi.fillRect (0.0f, (float) topHeight - 2.0f, (float) logicalWidth, 2.0f);
     });

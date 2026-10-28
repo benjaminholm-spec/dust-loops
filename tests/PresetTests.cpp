@@ -49,18 +49,27 @@ public:
             pm.setLoadsDeck (true, false); // the rest of the tests load everything
         }
 
-        beginTest ("at least 60 factory presets in the four banks");
+        beginTest ("at least 60 factory presets, grouped by instrument type");
         {
             expectGreaterOrEqual (pm.numFactory(), 60);
-            std::map<juce::String, int> perBank;
+            std::map<juce::String, int> perCategory;
             for (int i = 0; i < pm.numFactory(); ++i)
-                ++perBank[list[(size_t) i].bank];
-            expectGreaterOrEqual (perBank["Hazy Memories"], 18);
-            expectGreaterOrEqual (perBank["Machine Drones"], 18);
-            expectGreaterOrEqual (perBank["Night Bus"], 13);
-            expectGreaterOrEqual (perBank["Utility"], 5);
-            expectEquals ((int) perBank.size(), 4);
+            {
+                ++perCategory[list[(size_t) i].bank];
+                expect (PresetManager::factoryBanks().contains (list[(size_t) i].bank), list[(size_t) i].name + ": unknown category");
+            }
+            for (auto& category : PresetManager::factoryBanks())
+                expectGreaterOrEqual (perCategory[category], 3, category + " has too few presets");
             expectEquals (p.getNumPrograms(), pm.numFactory());
+
+            // Sorted by category, in browser order
+            int lastRank = -1;
+            for (int i = 0; i < pm.numFactory(); ++i)
+            {
+                const auto rank = PresetManager::factoryBanks().indexOf (list[(size_t) i].bank);
+                expectGreaterOrEqual (rank, lastRank);
+                lastRank = rank;
+            }
         }
 
         beginTest ("every stored value names a real parameter and a valid choice");

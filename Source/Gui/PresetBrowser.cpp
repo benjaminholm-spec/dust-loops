@@ -50,7 +50,7 @@ PresetBrowser::PresetBrowser (DustLoopsProcessor& p) : presets (*p.presets)
         const auto hint = name == "All" ? String ("ALL: every preset.")
                         : name == "Favourites" ? String ("FAVOURITES: the presets you starred.")
                         : name == PresetManager::userBank ? String ("USER: presets you saved.")
-                        : name.toUpperCase() + ": factory presets.";
+                        : name.toUpperCase() + ": factory " + name.toLowerCase() + ".";
         auto b = std::make_unique<ActionButton> (name, hint);
         b->onPress = [this, key] { setBank (key); };
         b->isLit = [this, key] { return bank == key; };
@@ -185,7 +185,8 @@ void PresetBrowser::paintListBoxItem (int row, Graphics& g, int width, int heigh
     auto text = b.withTrimmedLeft (36.0f).withTrimmedRight (12.0f);
     g.setFont (Art::silkLight (12.0f));
     g.setColour (Art::Colours::silkDim);
-    g.drawText (preset.bank.toUpperCase(), text.removeFromRight (150.0f), Justification::centredRight, false);
+    const auto tag = preset.mood.isNotEmpty() ? preset.bank + "  /  " + preset.mood : preset.bank;
+    g.drawText (tag.toUpperCase(), text.removeFromRight (260.0f), Justification::centredRight, false);
 
     g.setFont (Art::silk (16.0f));
     g.setColour (isCurrent ? Art::Colours::ledRed : Art::Colours::silk);
@@ -326,7 +327,7 @@ void PresetBrowser::deleteCurrent()
 void PresetBrowser::resized()
 {
     for (size_t i = 0; i < bankButtons.size(); ++i)
-        bankButtons[i]->setBounds (16, 56 + (int) i * 36, 180, 28);
+        bankButtons[i]->setBounds (16, 52 + (int) i * 31, 180, 27);
     deckButton.setBounds (16, 492, 180, 28);
     search.setBounds (212, 12, 380, 30);
     nameEditor.setBounds (search.getBounds());

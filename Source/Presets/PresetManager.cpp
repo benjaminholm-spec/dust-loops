@@ -52,7 +52,8 @@ std::optional<float> normalisedFrom (const juce::RangedAudioParameter& p, const 
 
 const juce::StringArray& PresetManager::factoryBanks()
 {
-    static const juce::StringArray banks { "Hazy Memories", "Machine Drones", "Night Bus", "Utility" };
+    static const juce::StringArray banks { "Pads", "Keys", "Plucks", "Bells", "Leads", "Bass", "Strings & Choirs",
+                                           "Drones", "Textures", "Utility" };
     return banks;
 }
 
@@ -114,7 +115,8 @@ void PresetManager::loadFactory()
             continue;
         Preset p;
         p.name = parsed["name"].toString();
-        p.bank = parsed["bank"].toString();
+        p.bank = parsed.hasProperty ("category") ? parsed["category"].toString() : parsed["bank"].toString();
+        p.mood = parsed["mood"].toString();
         p.description = parsed["description"].toString();
         p.data = parsed;
         const auto sortKey = juce::String (bankRank (p.bank)).paddedLeft ('0', 2) + file;
@@ -219,7 +221,7 @@ juce::var PresetManager::capture (const juce::String& name, const juce::String& 
 
     auto* root = new juce::DynamicObject();
     root->setProperty ("name", name);
-    root->setProperty ("bank", bank);
+    root->setProperty ("category", bank);
     root->setProperty ("description", description);
     root->setProperty ("pedalOrder", getOrder ? getOrder() : juce::String());
     root->setProperty ("params", juce::var (params));
@@ -289,7 +291,7 @@ std::vector<int> PresetManager::filter (const juce::String& bank, const juce::St
         const auto& p = list[i];
         if (bank == "Favourites" ? ! isFavourite ((int) i) : (bank.isNotEmpty() && p.bank != bank))
             continue;
-        const auto haystack = p.name + " " + p.bank + " " + p.description;
+        const auto haystack = p.name + " " + p.bank + " " + p.mood + " " + p.description;
         bool match = true;
         for (auto& w : words)
             match = match && haystack.containsIgnoreCase (w);

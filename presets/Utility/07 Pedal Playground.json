@@ -1,6 +1,7 @@
 {
   "name": "Pedal Playground",
-  "bank": "Utility",
+  "category": "Utility",
+  "mood": "Utility",
   "description": "Every pedal on at a moderate setting. Stomp them on and off to hear each one.",
   "pedalOrder": "dirt,warble,drift,tape,cloud,hall",
   "params": {

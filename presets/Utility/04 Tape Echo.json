@@ -1,6 +1,7 @@
 {
   "name": "Tape Echo",
-  "bank": "Utility",
+  "category": "Utility",
+  "mood": "Utility",
   "description": "A plain tape echo with three heads. Good for the FX version on any track.",
   "pedalOrder": "dirt,warble,drift,tape,cloud,hall",
   "params": {

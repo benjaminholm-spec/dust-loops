@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Writes the factory presets to presets/<Bank>/NN Name.json.
+"""Writes the factory presets to presets/<Category>/NN Name.json.
+
+Presets are grouped by instrument type (CATEGORIES below); the old collections (Hazy Memories, Machine
+Drones, Night Bus, Utility) live on as each preset's "mood", which the browser shows and searches.
 
 The JSON files are what the plugin ships (they are built into it). This script only produced the
 starting set: edit the JSON directly, or edit here and re-run. Anything a preset leaves out loads at its
@@ -68,14 +71,35 @@ for _p in ('dirt', 'warble', 'drift', 'cloud', 'hall'):
 DEFAULT_ORDER = 'dirt,warble,drift,tape,cloud,hall'
 
 
-def P(bank, name, description, *parts, order=DEFAULT_ORDER):
+CATEGORIES = ['Pads', 'Keys', 'Plucks', 'Bells', 'Leads', 'Bass', 'Strings & Choirs', 'Drones', 'Textures', 'Utility']
+CATEGORY = {
+    'Pads': ['Cassette Afternoon', 'Summer Camp Film', 'Slow Dissolve', 'Tidepool', 'Nostalgia Machine', 'Sunbleached',
+             'Long Drive North', 'Afterglow Reel', 'Black Mirror Pad', 'Half-Speed Machine', 'Pressure Drop', 'Feedback Hymn',
+             'Rain on the Top Deck', 'Sodium Lights', 'Pirate Radio Fade', '2AM Minicab', 'Fog Over the Estuary', 'Old Home Movie'],
+    'Keys': ['Faded Polaroid', 'Half Speed Holiday', 'Industrial Lullaby', 'Crackle and Hiss', 'Rhodes in the Attic'],
+    'Plucks': ['Bicycle Spokes', 'Garage Ghosts', 'Kalimba Dust', 'Static Harp', 'Raindrop Pluck'],
+    'Bells': ['Geography Lesson', 'Daylight Bells', 'Broken Music Box', 'Lost Text Message'],
+    'Leads': ['Rust Belt Lullaby', "Children's TV", 'Siren Song in Rain', 'Sync Lead in Fog', 'Whistling Wire'],
+    'Bass': ['Sub Station', 'Estate Afterhours', 'Tape Sub', 'Rubber Bass', 'Cellar Bass'],
+    'Strings & Choirs': ['Kodachrome Sky', 'Wobbly Choir', 'Paper Lanterns', 'Night Bus Home', 'Last Train Vox', 'Wet Pavement',
+                         'Underpass Choir', 'Grey Morning', 'Servo Choir', 'Ghost in the Rack'],
+    'Drones': ['Iron Lung Hum', 'Cold Circuit', 'Rust Engine', 'Tension Wire', 'Slow Machine Breathing', 'Reverse Cathedral',
+               'Signal Decay', 'Modular Weather', 'Voltage Garden'],
+    'Textures': ['Grey Static Field', 'Dead Channel', 'Coolant Leak'],
+    'Utility': ['Init DCO', 'Init VCO', 'Init Ensemble', 'Tape Echo', 'Frippertronics', 'Dry Synth', 'Pedal Playground'],
+}
+CATEGORY_OF = {name: cat for cat, names in CATEGORY.items() for name in names}
+
+
+def P(mood, name, description, *parts, order=DEFAULT_ORDER):
     params = dict(ALL_OFF)
     for part in parts:
         params.update(part)
     # Loudness trim from the render tool, measured as the plugin normally loads presets: sound only.
     level = params.get('synth.level', -6.0) + TRIMS.get(name, 0.0)
     params['synth.level'] = round(max(-30.0, min(6.0, level)), 1)
-    PRESETS.append({'name': name, 'bank': bank, 'description': description, 'pedalOrder': order, 'params': params})
+    PRESETS.append({'name': name, 'category': CATEGORY_OF[name], 'mood': mood, 'description': description,
+                    'pedalOrder': order, 'params': params})
 
 
 # ---- synth archetypes ----------------------------------------------------------------------------
@@ -435,6 +459,55 @@ P(NB, 'Grey Morning', 'A gentle string pad that blooms slowly, with a little cra
   pedal('hall', decay=12.0, tone=0.3, mix=0.3, loop=True, loopAmt=0.15))
 
 # ==================================================================================================
+# More plucks, leads, basses and keys
+# ==================================================================================================
+P(HM, 'Kalimba Dust', 'A woody thumb-piano pluck. Play little patterns and let the loops pile them up.',
+  dco_keys(saw=0.0, pulse=1.0, pw=0.3, sub=0.0, cutoff=900, resonance=0.3, filterEnv=0.55, keyTrack=0.8, fDecay=0.25,
+           fSustain=0.0, decay=0.6, sustain=0.0, release=0.5, chorus='I'),
+  mac(warp=0.2), tape_type('Ferric'), tape(feed=0.65, mix=0.5), pedal('hall', decay=6.0, tone=0.35, mix=0.3))
+
+P(MD, 'Static Harp', 'A metallic synced pluck that tears a little on every note. Arpeggios and broken chords.',
+  vco_pad(sync=True, polyModPitch=0.3, osc2Semi=12, osc2Level=0.3, filterEnv=0.5, fAttack=0.001, fDecay=0.4, fSustain=0.0,
+          attack=0.001, decay=1.2, sustain=0.0, release=1.0, cutoff=1200, resonance=0.35),
+  mac(warp=0.1), tape_type('Chrome'), tape(feed=0.7, mix=0.5), pedal('hall', decay=8.0, tone=0.3, mix=0.3), order=ORDER_DRONE)
+
+P(NB, 'Raindrop Pluck', 'Soft chorused plucks with rain behind them. Off-beat chords.',
+  dco_keys(saw=0.4, pulse=0.6, pw=0.2, decay=0.35, sustain=0.0, release=0.3, fDecay=0.2, cutoff=1800, chorus='II'),
+  mac(haze=0.2), tape_type('Ferric'), tape(feed=0.6, mix=0.5), atm(level=0.35, crackle=0.3, rain=0.5),
+  pedal('hall', decay=7.0, tone=0.3, mix=0.3))
+
+P(NB, 'Sync Lead in Fog', 'A hazy synced lead that sweeps open on each note. Play a slow melody.',
+  vco_lead(sync=True, polyModPitch=0.25, osc2Semi=0, osc2Wave=0.0, osc2Level=0.2, cutoff=1500, resonance=0.25, glide=0.15),
+  mac(haze=0.4), tape_type('Ferric'), tape(feed=0.65, mix=0.45), atm(level=0.3, crackle=0.3, rain=0.4),
+  pedal('hall', decay=10.0, tone=0.3, mix=0.35))
+
+P(MD, 'Whistling Wire', 'A thin, whistling lead from a filter close to singing on its own. High melodies.',
+  vco_lead(osc1Wave=0.5, osc2Level=0.2, resonance=0.7, cutoff=900, keyTrack=1.0, drive=0.2, lfoPitch=0.2),
+  mac(warp=0.1), tape_type('Chrome'), tape(feed=0.7, mix=0.45), pedal('hall', decay=12.0, tone=0.3, mix=0.35),
+  order=ORDER_DRONE)
+
+P(HM, 'Tape Sub', 'A round mono bass with a strong sub. Simple bass lines under the pads.',
+  dco_keys(voiceMode='Mono', saw=0.3, pulse=0.5, pw=0.5, sub=1.0, cutoff=450, resonance=0.2, filterEnv=0.25, keyTrack=0.3,
+           fDecay=0.6, fSustain=0.2, attack=0.005, decay=1.0, sustain=0.8, release=0.3, chorus='Off', velToAmp=0.3),
+  mac(warp=0.1), tape_type('Ferric'), tape(feed=0.55, mix=0.35), pedal('hall', decay=4.0, tone=0.2, mix=0.15))
+
+P(MD, 'Rubber Bass', 'A squelchy, resonant mono bass with a little glide.',
+  vco_lead(glide=0.05, osc2Semi=-12, osc2Wave=1.0, pw=0.4, cutoff=350, resonance=0.55, filterEnv=0.45, fDecay=0.35,
+           fSustain=0.15, drive=0.5, lfoPitch=0.0, decay=0.8, sustain=0.7, release=0.25),
+  tape_type('Ferric'), tape(feed=0.55, mix=0.35), pedal('dirt', drive=0.35, blend=0.2, tone=0.4, mix=0.4), order=ORDER_DRONE)
+
+P(NB, 'Cellar Bass', 'Low string-machine bass, dark and woolly. Hold long low notes.',
+  ens(voiceMode='Mono', ensFeet="16' + 8'", ensBright=0.2, ensEnsemble=0.6, cutoff=700, attack=0.05, release=0.6),
+  mac(haze=0.2), tape_type('Ferric'), tape(feed=0.6, mix=0.4), atm(level=0.25, crackle=0.4),
+  pedal('hall', decay=6.0, tone=0.2, mix=0.2))
+
+P(HM, 'Rhodes in the Attic', 'Soft, slightly broken electric piano. Chords that ring.',
+  dco_keys(saw=0.2, pulse=0.6, pw=0.45, sub=0.15, cutoff=900, filterEnv=0.3, fDecay=1.8, decay=3.5, sustain=0.2, release=1.2,
+           chorus='I', velToFilter=0.6),
+  mac(warp=0.25, haze=0.2), tape_type('Ferric'), tape(feed=0.65, mix=0.45),
+  pedal('warble', rate=0.4, depth=0.25, mix=0.4), pedal('hall', decay=7.0, tone=0.3, mix=0.25))
+
+# ==================================================================================================
 # Utility: clean starting points.
 # ==================================================================================================
 P(UT, 'Init DCO', 'A plain DCO-Poly patch with a clean tape. Start here to build your own.',
@@ -469,19 +542,21 @@ P(UT, 'Pedal Playground', 'Every pedal on at a moderate setting. Stomp them on a
 def main():
     if os.path.isdir(ROOT):
         shutil.rmtree(ROOT)
-    counts = {}
     names = set()
     for p in PRESETS:
         assert p['name'] not in names, 'duplicate name ' + p['name']
         names.add(p['name'])
-        counts[p['bank']] = counts.get(p['bank'], 0) + 1
-        folder = os.path.join(ROOT, p['bank'])
-        os.makedirs(folder, exist_ok=True)
-        safe = ''.join(c for c in p['name'] if c.isalnum() or c in ' -')
-        path = os.path.join(folder, '%02d %s.json' % (counts[p['bank']], safe))
-        with open(path, 'w') as f:
-            json.dump(p, f, indent=2, sort_keys=False)
-            f.write('\n')
+    assert names == set(CATEGORY_OF), 'uncategorised or missing: %s' % (names ^ set(CATEGORY_OF))
+    counts = {}
+    for cat in CATEGORIES:
+        for p in (p for p in PRESETS if p['category'] == cat):
+            counts[cat] = counts.get(cat, 0) + 1
+            folder = os.path.join(ROOT, cat)
+            os.makedirs(folder, exist_ok=True)
+            safe = ''.join(c for c in p['name'] if c.isalnum() or c in ' -')
+            with open(os.path.join(folder, '%02d %s.json' % (counts[cat], safe)), 'w') as f:
+                json.dump(p, f, indent=2, sort_keys=False)
+                f.write('\n')
     print('%d presets: %s' % (len(PRESETS), ', '.join('%s %d' % kv for kv in counts.items())))
 
 

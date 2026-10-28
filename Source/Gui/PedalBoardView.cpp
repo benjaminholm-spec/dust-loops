@@ -16,6 +16,7 @@ struct KnobDef { const char* id; const char* label; const char* hint; };
 struct PedalDef
 {
     const char* title;
+    const char* planetName;
     const char* hint;
     Colour paint;
     std::vector<KnobDef> knobs;
@@ -27,31 +28,31 @@ const std::array<PedalDef, 5>& pedalDefs()
 {
     using namespace ID::pedal;
     static const std::array<PedalDef, 5> defs { {
-        { "Dirt", "DIRT: grit. Tape drive into fuzz into bitcrush, on one BLEND knob. Drag the pedal to move it.", Colour (0xff4a1712),
+        { "Dirt", "Mars", "DIRT (Mars): grit. Tape drive into fuzz into bitcrush, on one BLEND knob. Drag the pedal to move it.", Colour (0xff4a1712),
           { { dirt::drive, "Drive", "DRIVE: how hard it is pushed." },
             { dirt::blend, "Blend", "BLEND: warm tape drive (left), fuzz (middle), crushed lo-fi (right)." },
             { dirt::tone, "Tone", "TONE: dark to bright." },
             { dirt::mix, "Mix", "MIX: clean to fully dirty." } },
           nullptr, nullptr, nullptr, nullptr, nullptr },
-        { "Warble", "WARBLE: wobbly tape chorus and vibrato, from gentle to seasick. Drag the pedal to move it.", Colour (0xff2c2236),
+        { "Warble", "Neptune", "WARBLE (Neptune): wobbly tape chorus and vibrato, from gentle to seasick. Drag the pedal to move it.", Colour (0xff2c2236),
           { { warble::rate, "Rate", "RATE: how fast it wobbles." },
             { warble::depth, "Depth", "DEPTH: from gentle shimmer to seasick." },
             { warble::mix, "Mix", "MIX: how much wobble." } },
           warble::mode, "Vib", "VIB: lit = vibrato (pure pitch wobble). Off = chorus (wobble mixed with the dry sound).", nullptr, nullptr },
-        { "Drift", "DRIFT FILTER: a resonant filter that sweeps very slowly on its own. Drag the pedal to move it.", Colour (0xff1d2a3a),
+        { "Drift", "Uranus", "DRIFT FILTER (Uranus): a resonant filter that sweeps very slowly on its own. Drag the pedal to move it.", Colour (0xff1d2a3a),
           { { drift::freq, "Freq", "FREQ: where the filter sits." },
             { drift::reso, "Reso", "RESO: resonance. High = whistling, vocal sweeps." },
             { drift::lfoRate, "Drift", "DRIFT: speed of the slow sweep, down to once every two minutes." },
             { drift::lfoDepth, "Sweep", "SWEEP: how far the filter moves." } },
           drift::mode, "BP", "BP: lit = bandpass (thin, focused). Off = lowpass (dark, warm).",
           drift::envAmt, "ENV: the filter follows how loud you play. Right opens it, left closes it." },
-        { "Cloud", "CLOUD: smears the sound into shimmering pitched grains that swell. Drag the pedal to move it.", Colour (0xff3b3d40),
+        { "Cloud", "Jupiter", "CLOUD (Jupiter): smears the sound into shimmering pitched grains that swell. Drag the pedal to move it.", Colour (0xff3b3d40),
           { { cloud::pitch, "Pitch", "PITCH: octave down, fifth up, octave up, or up and down together." },
             { cloud::smear, "Smear", "SMEAR: longer, more scattered grains." },
             { cloud::density, "Density", "DENSITY: more grains, and the cloud feeds back into itself and swells." },
             { cloud::mix, "Mix", "MIX: how much cloud." } },
           nullptr, nullptr, nullptr, nullptr, nullptr },
-        { "Hall", "HALL: a huge, dark reverb, up to a minute long. Drag the pedal to move it.", Colour (0xff151515),
+        { "Hall", "Saturn", "HALL (Saturn): a huge, dark reverb, up to a minute long. Drag the pedal to move it.", Colour (0xff151515),
           { { hall::decay, "Decay", "DECAY: how long the reverb rings, up to 60 seconds." },
             { hall::tone, "Tone", "TONE: dark to bright." },
             { hall::mix, "Mix", "MIX: how much reverb." } },
@@ -79,7 +80,8 @@ void drawJack (Graphics& g, Point<float> c)
     g.fillEllipse (c.x - 3.0f, c.y - 1.5f, 6.0f, 3.0f);
 }
 
-void drawEnclosure (Graphics& g, Rectangle<float> b, Colour paint, int seed)
+void drawEnclosure (Graphics& g, Rectangle<float> b, Colour paint, int seed,
+                    const std::function<void (Graphics&, Rectangle<float>)>& surface = {})
 {
     // Shadow on the board
     g.setColour (Colours::black.withAlpha (0.6f));
@@ -91,6 +93,14 @@ void drawEnclosure (Graphics& g, Rectangle<float> b, Colour paint, int seed)
     ColourGradient coat (paint.brighter (0.25f), b.getX(), b.getY(), paint.darker (0.4f), b.getX(), b.getBottom(), false);
     g.setGradientFill (coat);
     g.fillRoundedRectangle (b.reduced (1.2f), 6.0f);
+    if (surface)
+    {
+        Graphics::ScopedSaveState save (g);
+        Path face;
+        face.addRoundedRectangle (b.reduced (1.2f), 6.0f);
+        g.reduceClipRegion (face);
+        surface (g, b.reduced (1.2f));
+    }
 
     Random r (seed);
     // Paint chipped off along the edges, down to the aluminium
@@ -116,6 +126,132 @@ void drawEnclosure (Graphics& g, Rectangle<float> b, Colour paint, int seed)
     for (auto p : { Point<float> (b.getX() + 8.0f, b.getY() + 8.0f), Point<float> (b.getRight() - 8.0f, b.getY() + 8.0f),
                     Point<float> (b.getX() + 8.0f, b.getBottom() - 8.0f), Point<float> (b.getRight() - 8.0f, b.getBottom() - 8.0f) })
         Art::drawScrew (g, p, 2.6f, p.x * 0.07f);
+}
+
+//==============================================================================
+// Planet paint jobs: each pedal's face is a planet's surface, kept dark enough for the controls to read.
+enum class Planet { mars, neptune, uranus, jupiter, saturn };
+
+// Horizontal cloud bands with wavy edges.
+void drawBands (Graphics& g, Rectangle<float> a, const std::vector<Colour>& colours, int count, float wave, Random& r)
+{
+    for (int i = 0; i < count; ++i)
+    {
+        const auto y0 = a.getY() + a.getHeight() * ((float) i + r.nextFloat() * 0.3f) / (float) count;
+        const auto thick = a.getHeight() / (float) count * (0.5f + r.nextFloat() * 0.7f);
+        const auto phase = r.nextFloat() * 6.28f, freq = 0.03f + r.nextFloat() * 0.05f;
+        Path band;
+        band.startNewSubPath (a.getX() - 2.0f, y0);
+        for (float x = a.getX(); x <= a.getRight() + 4.0f; x += 4.0f)
+            band.lineTo (x, y0 + wave * std::sin (x * freq + phase));
+        for (float x = a.getRight() + 4.0f; x >= a.getX() - 4.0f; x -= 4.0f)
+            band.lineTo (x, y0 + thick + wave * 0.8f * std::sin (x * freq * 1.3f + phase + 1.0f));
+        band.closeSubPath();
+        g.setColour (colours[(size_t) i % colours.size()].withAlpha (0.55f + 0.3f * r.nextFloat()));
+        g.fillPath (band);
+    }
+}
+
+void drawStorm (Graphics& g, Point<float> c, float w, float h, Colour core, Colour rim)
+{
+    g.setColour (rim.withAlpha (0.7f));
+    g.fillEllipse (c.x - w * 0.6f, c.y - h * 0.6f, w * 1.2f, h * 1.2f);
+    ColourGradient eye (core.brighter (0.2f), c.x - w * 0.15f, c.y - h * 0.15f, core.darker (0.3f), c.x + w * 0.5f, c.y + h * 0.5f, true);
+    g.setGradientFill (eye);
+    g.fillEllipse (c.x - w * 0.5f, c.y - h * 0.5f, w, h);
+}
+
+void drawPlanetSurface (Graphics& g, Rectangle<float> a, Planet planet, int seed)
+{
+    Random r (seed);
+    switch (planet)
+    {
+        case Planet::mars:
+        {
+            g.fillAll (Colour (0xff7e3320));
+            for (int i = 0; i < 12; ++i) // dark plains
+            {
+                const auto w = 20.0f + 50.0f * r.nextFloat();
+                g.setColour (Colour (0xff3e170e).withAlpha (0.35f + 0.25f * r.nextFloat()));
+                g.fillEllipse (a.getX() + r.nextFloat() * a.getWidth() - w * 0.3f, a.getY() + r.nextFloat() * a.getHeight(), w, w * (0.3f + 0.4f * r.nextFloat()));
+            }
+            for (int i = 0; i < 14; ++i) // craters, lit from the top left
+            {
+                const auto c = Point<float> (a.getX() + r.nextFloat() * a.getWidth(), a.getY() + 20.0f + r.nextFloat() * (a.getHeight() - 20.0f));
+                const auto rad = 2.0f + 6.0f * r.nextFloat() * r.nextFloat();
+                g.setColour (Colour (0xff2e100a).withAlpha (0.55f));
+                g.fillEllipse (c.x - rad, c.y - rad, rad * 2.0f, rad * 2.0f);
+                g.setColour (Colour (0xffd28a5e).withAlpha (0.45f));
+                g.drawEllipse (c.x - rad + 0.6f, c.y - rad + 0.6f, rad * 2.0f, rad * 2.0f, 0.8f);
+            }
+            for (int i = 0; i < 90; ++i) // dust
+            {
+                g.setColour (Colour (0xffe0a070).withAlpha (0.08f + 0.12f * r.nextFloat()));
+                g.fillEllipse (a.getX() + r.nextFloat() * a.getWidth(), a.getY() + r.nextFloat() * a.getHeight(), 1.4f, 1.4f);
+            }
+            g.setColour (Colour (0xffe8e2da).withAlpha (0.55f)); // polar cap
+            g.fillEllipse (a.getCentreX() - 34.0f, a.getY() - 14.0f, 68.0f, 24.0f);
+            break;
+        }
+        case Planet::neptune:
+            g.fillAll (Colour (0xff17307a));
+            drawBands (g, a, { Colour (0xff2348a0), Colour (0xff122661), Colour (0xff1c3b8c), Colour (0xff2b55b0) }, 9, 4.0f, r);
+            for (int i = 0; i < 7; ++i) // bright methane streaks
+            {
+                const auto y = a.getY() + 30.0f + r.nextFloat() * (a.getHeight() - 40.0f);
+                const auto x = a.getX() + r.nextFloat() * a.getWidth() * 0.7f;
+                g.setColour (Colour (0xffd8e6ff).withAlpha (0.18f + 0.2f * r.nextFloat()));
+                g.fillEllipse (x, y, 20.0f + 30.0f * r.nextFloat(), 2.0f + 2.0f * r.nextFloat());
+            }
+            drawStorm (g, { a.getX() + a.getWidth() * 0.7f, a.getY() + a.getHeight() * 0.62f }, 34.0f, 16.0f,
+                       Colour (0xff0b1a48), Colour (0xff3d63c0));
+            break;
+        case Planet::uranus:
+        {
+            g.fillAll (Colour (0xff4f8e98));
+            drawBands (g, a, { Colour (0xff5c9ea7), Colour (0xff467f89), Colour (0xff63a8b0) }, 7, 1.5f, r);
+            // Uranus's rings stand on end
+            g.setColour (Colour (0xffd8f0f2).withAlpha (0.28f));
+            for (auto k : { 0.0f, 5.0f, 9.0f })
+                g.drawEllipse (a.getCentreX() - 18.0f - k, a.getY() - 30.0f - k * 2.0f, 36.0f + k * 2.0f, a.getHeight() + 60.0f + k * 4.0f, 1.0f);
+            break;
+        }
+        case Planet::jupiter:
+            g.fillAll (Colour (0xffa47c55));
+            drawBands (g, a, { Colour (0xffd3bc95), Colour (0xff8a5e3b), Colour (0xffc9a378), Colour (0xff6e4528), Colour (0xffe0cfae),
+                               Colour (0xff9a6a44) }, 12, 3.0f, r);
+            drawStorm (g, { a.getX() + a.getWidth() * 0.68f, a.getY() + a.getHeight() * 0.6f }, 44.0f, 22.0f,
+                       Colour (0xffa8442a), Colour (0xffd9b48a));
+            break;
+        case Planet::saturn:
+            g.fillAll (Colour (0xffa88d58));
+            drawBands (g, a, { Colour (0xffc6ac74), Colour (0xff927645), Colour (0xffd4c08c), Colour (0xffb39a62) }, 10, 1.2f, r);
+            {
+                // Rings sweeping across the face, with the Cassini gap
+                const auto c = a.getCentre().translated (0.0f, 6.0f);
+                const auto t = AffineTransform::rotation (-0.32f, c.x, c.y);
+                const auto ring = [&] (float rx, float ry, float width, Colour colour)
+                {
+                    Path p;
+                    p.addEllipse (c.x - rx, c.y - ry, rx * 2.0f, ry * 2.0f);
+                    g.setColour (colour);
+                    g.strokePath (p, PathStrokeType (width), t);
+                };
+                ring (118.0f, 34.0f, 10.0f, Colour (0xfff0e2bc).withAlpha (0.55f));
+                ring (105.0f, 30.0f, 6.0f, Colour (0xffd9c393).withAlpha (0.5f));
+                ring (127.5f, 37.0f, 2.5f, Colour (0xff2a200f).withAlpha (0.6f)); // the Cassini gap
+                ring (136.0f, 40.0f, 6.0f, Colour (0xffe8d8ae).withAlpha (0.45f));
+            }
+            break;
+    }
+
+    // A sphere's limb: light from the top left, darker towards the edges, then a dim veil so the controls read.
+    ColourGradient limb (Colours::white.withAlpha (0.1f), a.getX() + a.getWidth() * 0.3f, a.getY() + a.getHeight() * 0.25f,
+                         Colours::black.withAlpha (0.5f), a.getRight() + 10.0f, a.getBottom() + 10.0f, true);
+    g.setGradientFill (limb);
+    g.fillRect (a);
+    g.setColour (Colours::black.withAlpha (0.18f));
+    g.fillRect (a);
 }
 
 // Right-angle plug on a top-mounted jack, with the cable leaving upwards.
@@ -195,6 +331,8 @@ PedalView::PedalView (PedalBoardView& b, APVTS& state, int pedalIndex, std::func
 {
     const auto& def = pedalDefs()[(size_t) pedalIndex];
     title = def.title;
+    planetName = def.planetName;
+    planet = pedalIndex;
     paint1 = def.paint;
     setHint (*this, def.hint);
 
@@ -255,11 +393,27 @@ void PedalView::resized()
 
 void PedalView::paint (Graphics& g)
 {
-    const auto b = getLocalBounds().toFloat().reduced (1.0f, 0.0f).withTrimmedBottom (2.0f);
-    drawEnclosure (g, b, paint1, slot * 77 + 3);
-    drawJack (g, { b.getX() + 20.0f, b.getY() + 3.0f });
-    drawJack (g, { b.getRight() - 20.0f, b.getY() + 3.0f });
-    drawDymoLabel (g, { b.getCentreX(), 30.0f }, title, 17.0f, slot + 900);
+    background.draw (g, getLocalBounds(), [this] (Image& image, float scale)
+    {
+        Graphics gi (image);
+        gi.addTransform (AffineTransform::scale (scale));
+        const auto b = getLocalBounds().toFloat().reduced (1.0f, 0.0f).withTrimmedBottom (2.0f);
+        drawEnclosure (gi, b, paint1, slot * 77 + 3, [this] (Graphics& gs, Rectangle<float> face)
+        {
+            drawPlanetSurface (gs, face, (Planet) planet, 4000 + planet * 31);
+        });
+        drawJack (gi, { b.getX() + 20.0f, b.getY() + 3.0f });
+        drawJack (gi, { b.getRight() - 20.0f, b.getY() + 3.0f });
+        drawDymoLabel (gi, { b.getCentreX(), 30.0f }, title, 17.0f, slot + 900);
+
+        // The planet's name, printed small beside the footswitch
+        gi.setFont (Art::silk (10.0f));
+        const Rectangle<float> nameArea (b.getX() + 14.0f, b.getBottom() - 26.0f, 46.0f, 14.0f);
+        gi.setColour (Colours::black.withAlpha (0.7f));
+        gi.drawText (planetName.toUpperCase(), nameArea.translated (0.6f, 0.8f), Justification::centredLeft, false);
+        gi.setColour (Art::Colours::silk.withAlpha (0.85f));
+        gi.drawText (planetName.toUpperCase(), nameArea, Justification::centredLeft, false);
+    });
 }
 
 //==============================================================================

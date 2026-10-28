@@ -38,7 +38,8 @@ If Logic doesn't show a new build: quit Logic, run `./build.sh`, and reopen Logi
 The plugin has a synth strip at the top, a cassette deck in the middle and a pedalboard at the bottom. Hover over any control and the hint strip tells you what it does.
 
 **Presets first.** The red display at the top shows the current preset. Click ◀ ▶ to step through presets, or click the display to open the browser:
-- banks on the left (All, Favourites, Hazy Memories, Machine Drones, Night Bus, Utility, User)
+- instrument types on the left: Pads, Keys, Plucks, Bells, Leads, Bass, Strings & Choirs, Drones, Textures, Utility, plus All, Favourites and User
+- each preset also has a mood (Hazy Memories, Machine Drones, Night Bus), shown on the right and searchable
 - a search box: try "rain", "drone" or "bells"
 - one click loads a preset so you can audition it while you play, and a double-click loads it and closes the browser
 - the star marks a favourite
@@ -76,7 +77,7 @@ Logic's own preset menu (top of the plugin window) also lists the factory preset
    - tape type, wow, flutter, hiss, saturation, age and dropouts
    - inertia, brake time and master level
 
-10. **Pedals** (under the deck). Stomp the footswitch to turn a pedal on.
+10. **Pedals** (under the deck), each painted as a planet: DIRT is Mars, WARBLE Neptune, DRIFT Uranus, CLOUD Jupiter and HALL Saturn. Stomp the footswitch to turn a pedal on.
     - **LOOP** puts a copy of the pedal inside the tape loop, so its effect builds up on every pass. That's where the drones come from. The little trim next to it sets how much.
     - Drag a pedal by its body to move it. Pedals left of the **TAPE DECK** block go onto the tape; pedals right of it colour what comes off it.
 
@@ -116,13 +117,18 @@ assets/             Dust Planet Records logo
 tools/              Snapshot.cpp renders the UI to PNG (cmake --build build --target DustSnapshot)
                     Render.cpp renders every preset and reports levels (cmake --build build --target DustRender)
                     make_presets.py wrote the starting set of factory presets
-presets/            factory presets as JSON, one folder per bank; built into the plugin
+presets/            factory presets as JSON, one folder per instrument type; built into the plugin
 ```
+
+## Recording the output in Logic
+A plugin can't write audio onto Logic's tracks itself. To capture a performance, including knob moves and the tape:
+- **Bounce in Place:** right-click the region and choose Bounce and Replace, or Bounce in Place.
+- **Live:** set the Dust Loops channel's output to a bus. Create an audio track with that bus as its input, record-arm it and record while you play.
 
 ## Presets as files
 A preset is a JSON file:
 ```json
-{ "name": "Cassette Afternoon", "bank": "Hazy Memories", "description": "...",
+{ "name": "Cassette Afternoon", "category": "Pads", "mood": "Hazy Memories", "description": "...",
   "pedalOrder": "dirt,warble,drift,tape,cloud,hall",
   "params": { "synth.model": "DCO-Poly", "synth.cutoff": 1500, "pedal.hall.on": true } }
 ```
